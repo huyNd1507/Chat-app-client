@@ -39,6 +39,13 @@ const LoginPage = () => {
       });
       router.push("/");
     },
+    onError: (error: any) => {      
+      toast({
+        variant: "destructive",
+        title: "Đăng nhập thất bại",
+        description: error.response?.data?.message || "Có lỗi xảy ra khi đăng nhập",
+      });
+    }
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,7 +90,6 @@ const LoginPage = () => {
               id="email"
               name="email"
               type="email"
-              placeholder="Enter your email"
               required
               value={formData.email}
               onChange={handleChange}
@@ -104,7 +110,6 @@ const LoginPage = () => {
               id="password"
               name="password"
               type="password"
-              placeholder="Enter your password"
               required
               value={formData.password}
               onChange={handleChange}

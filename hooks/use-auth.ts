@@ -25,7 +25,6 @@ export const useAuth = () => {
   const { toast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Query to check authentication status
   const { data: userData, isLoading } = useQuery<AxiosResponse<AuthResponse>>({
     queryKey: ["user"],
     queryFn: getMe,
@@ -36,7 +35,6 @@ export const useAuth = () => {
     refetchOnReconnect: false,
   });
 
-  // Update authentication state when user data changes
   useEffect(() => {
     if (userData?.data?.data) {
       setIsAuthenticated(true);
@@ -45,7 +43,6 @@ export const useAuth = () => {
     }
   }, [userData]);
 
-  // Login mutation
   const loginMutation = useMutation<AxiosResponse<AuthResponse>, Error, { email: string; password: string }>({
     mutationFn: login,
     onSuccess: (response) => {
@@ -61,7 +58,7 @@ export const useAuth = () => {
       toast({
         variant: "destructive",
         title: "Đăng nhập thất bại",
-        description: error.response?.message || "Có lỗi xảy ra khi đăng nhập",
+        description: error.response?.data?.message || "Có lỗi xảy ra khi đăng nhập",
       });
     }
   });

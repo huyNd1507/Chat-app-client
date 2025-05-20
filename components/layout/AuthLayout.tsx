@@ -1,6 +1,8 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
+import Image from "next/image";
+import BannerAuthen from "../../public/banner_login.png"
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -14,7 +16,16 @@ const AuthLayout = ({ children }: AuthLayoutProps) => {
           <Card className="overflow-hidden">
             <CardContent className="grid p-0 md:grid-cols-2">
               {children}
-              <div className="relative hidden bg-muted md:block bg-slate-100"></div>
+              <div className="relative hidden bg-muted md:block bg-slate-100">
+                <Image
+                  src={BannerAuthen}
+                  alt="Authentication illustration"
+                  fill
+                  className="object-cover"
+                  priority
+                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                />
+              </div>
             </CardContent>
           </Card>
           <div className="text-balance text-center text-xs text-muted-foreground [&_a]:underline [&_a]:underline-offset-4 hover:[&_a]:text-primary">

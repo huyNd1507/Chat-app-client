@@ -30,9 +30,7 @@ const RegisterPage = () => {
       });
       router.push("/login");
     },
-    onError: (error: any) => {
-      console.log("Register error response:", error.response?.data);
-      
+    onError: (error: any) => {      
       toast({
         variant: "destructive",
         title: "Đăng ký thất bại",
@@ -72,7 +70,6 @@ const RegisterPage = () => {
               required 
               value={formData.username}
               onChange={handleChange}
-              placeholder="Nhập username"
             />
           </div>
           <div className="grid gap-2">
@@ -83,7 +80,6 @@ const RegisterPage = () => {
               required 
               value={formData.fullname}
               onChange={handleChange}
-              placeholder="Nhập họ và tên"
             />
           </div>
           <div className="grid gap-2">
@@ -94,7 +90,6 @@ const RegisterPage = () => {
               required 
               value={formData.email}
               onChange={handleChange}
-              placeholder="Nhập email"
             />
           </div>
           <div className="grid gap-2">
@@ -107,7 +102,6 @@ const RegisterPage = () => {
               required 
               value={formData.password}
               onChange={handleChange}
-              placeholder="Nhập mật khẩu"
             />
           </div>
           <Button
