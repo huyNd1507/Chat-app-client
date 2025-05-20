@@ -7,7 +7,7 @@ const ContactPage = () => {
     <MainLayout>
       <div className="lg:w-[390px] tab-content">
         <div className="p-6 flex justify-between">
-          <h4 className="mb-0 text-gray-700 font-bold">Contacts</h4>
+          <h4 className="mb-0 font-bold text-foreground">Contacts</h4>
           <IconUsergroupAdd />
         </div>
 

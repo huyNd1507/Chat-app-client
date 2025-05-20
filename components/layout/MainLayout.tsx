@@ -18,18 +18,18 @@ const MainLayout = ({ children }: AuthLayoutProps) => {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-background">
       <SideBar />
 
       <div
-        className="lg:w-[390px] tab-content bg-gray-50"
+        className="lg:w-[390px] tab-content bg-background"
         onClick={handleChatToggle}
       >
         {children}
       </div>
 
       <div
-        className={`w-full overflow-hidden bg-white transition-all duration-150 user-chat ${
+        className={`w-full overflow-hidden bg-background transition-all duration-150 user-chat ${
           isChatVisible ? "user-chat-show" : ""
         }`}
       >

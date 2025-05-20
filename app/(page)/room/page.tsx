@@ -17,7 +17,7 @@ const RoomPage = () => {
     <MainLayout>
       <div>
         <div className="p-6 flex justify-between">
-          <h4 className="mb-0 text-gray-700 font-bold">Groups</h4>
+          <h4 className="mb-0 font-bold text-foreground">Groups</h4>
 
           <Dialog>
             <DialogTrigger>
@@ -45,25 +45,25 @@ const RoomPage = () => {
         </div>
 
         <div className="p-6">
-          <div className="flex px-4 items-center justify-between py-4 cursor-pointer hover:bg-slate-200 transition-all ease-in-out border-b border-white/20 rounded-md">
+          <div className="flex px-4 items-center justify-between py-4 cursor-pointer hover:bg-accent transition-all ease-in-out border-b border-border rounded-md">
             <div className="flex items-center flex-1 gap-3">
               <Avatar>
                 <AvatarImage src="https://github.com/shadcn.png" />
                 <AvatarFallback>CN</AvatarFallback>
               </Avatar>
-              <p>#Nhóm học tập</p>
+              <p className="text-foreground">#Nhóm học tập</p>
             </div>
             <span className="w-5 h-5 bg-red-400 rounded-full float-right text-white text-xs flex items-center justify-center">
               1
             </span>
           </div>
-          <div className="flex px-4 items-center justify-between py-4 cursor-pointer hover:bg-slate-200 transition-all ease-in-out border-b border-white/20 rounded-md">
+          <div className="flex px-4 items-center justify-between py-4 cursor-pointer hover:bg-accent transition-all ease-in-out border-b border-border rounded-md">
             <div className="flex items-center flex-1 gap-3">
               <Avatar>
                 <AvatarImage src="https://github.com/shadcn.png" />
                 <AvatarFallback>CN</AvatarFallback>
               </Avatar>
-              <p>#Developer</p>
+              <p className="text-foreground">#Developer</p>
             </div>
           </div>
         </div>

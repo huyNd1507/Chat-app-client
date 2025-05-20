@@ -22,7 +22,7 @@ interface ChatContentProps {
 const Header = ({ isChatVisible, toggleChat }: ChatContentProps) => {
   console.log("isChatVisible:", isChatVisible);
   return (
-    <div className="p-4 border-b border-gray-300 lg:p-6">
+    <div className="p-4 border-b border-border lg:p-6">
       <div className="grid items-center grid-cols-12">
         {/* Left Section */}
         <div className="col-span-8 sm:col-span-4">
@@ -38,10 +38,10 @@ const Header = ({ isChatVisible, toggleChat }: ChatContentProps) => {
                 <AvatarImage src="https://github.com/shadcn.png" />
                 <AvatarFallback>CN</AvatarFallback>
               </Avatar>
-              <span className="absolute w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full top-7 right-0"></span>
+              <span className="absolute w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full top-7 right-0"></span>
             </div>
             <div className="flex-grow overflow-hidden">
-              <h5 className="mb-0 truncate text-16 ltr:block rtl:hidden font-semibold">
+              <h5 className="mb-0 truncate text-16 ltr:block rtl:hidden font-semibold text-foreground">
                 Quang Huy
               </h5>
             </div>
@@ -55,7 +55,7 @@ const Header = ({ isChatVisible, toggleChat }: ChatContentProps) => {
               <li key={index}>
                 <button
                   type="button"
-                  className="text-xl text-gray-500 border-0 btn lg:block"
+                  className="text-xl text-muted-foreground border-0 btn lg:block hover:text-foreground transition-colors"
                   data-tw-toggle="modal"
                   data-tw-target="#audiCallModal"
                   aria-label={ariaLabel}

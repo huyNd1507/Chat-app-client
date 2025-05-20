@@ -20,6 +20,9 @@ import { IconLogout } from "../icons/logout";
 import { IconMoon } from "../icons/moon";
 import { IconLock } from "../icons/lock";
 import { SVGProps, ComponentType } from "react";
+import { useUser } from "@/contexts/UserContext";
+import { ThemeToggle } from "../theme/ThemeToggle";
+import { useAuth } from "@/hooks/use-auth";
 
 type NavItemProps = {
   href: string;
@@ -38,6 +41,8 @@ const NAV_ITEMS = [
 const SideBar = () => {
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useUser();
+  const { logout } = useAuth();
 
   const renderNavItem = ({ href, label, icon: Icon }: NavItemProps) => {
     const isActive = pathname === href;
@@ -49,13 +54,13 @@ const SideBar = () => {
       >
         <Link
           href={href}
-          className={`tab-button relative flex items-center justify-center mx-auto h-14 w-14 leading-[14px] group/tab my-1 rounded-lg ${
-            isActive ? "bg-gray-200" : ""
+          className={`tab-button relative flex items-center justify-center mx-auto h-14 w-14 leading-[14px] group/tab my-1 rounded-lg transition-colors ${
+            isActive ? "bg-secondary text-secondary-foreground" : "hover:bg-muted"
           }`}
         >
           <div className="absolute items-center hidden -top-10 ltr:left-0 group-hover/tab:flex rtl:right-0">
-            <div className="absolute -bottom-1 left-[40%] w-3 h-3 rotate-45 bg-black"></div>
-            <span className="relative z-10 p-2 text-xs leading-none text-white whitespace-no-wrap bg-black rounded shadow-lg">
+            <div className="absolute -bottom-1 left-[40%] w-3 h-3 rotate-45 bg-popover"></div>
+            <span className="relative z-10 p-2 text-xs leading-none text-popover-foreground whitespace-no-wrap bg-popover rounded shadow-lg">
               {label}
             </span>
           </div>
@@ -69,8 +74,8 @@ const SideBar = () => {
     <DropdownMenu>
       <DropdownMenuTrigger>
         <Avatar className="cursor-pointer">
-          <AvatarImage src="https://github.com/shadcn.png" />
-          <AvatarFallback>CN</AvatarFallback>
+          <AvatarImage src={user?.avatar || "https://github.com/shadcn.png"} />
+          <AvatarFallback>{user?.fullname?.charAt(0) || "U"}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="relative w-40 lg:left-8">
@@ -86,8 +91,8 @@ const SideBar = () => {
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          className="flex justify-between"
-          onClick={() => router.push("/login")}
+          className="flex justify-between cursor-pointer"
+          onClick={() => logout()}
         >
           <span>Log out</span>
           <IconLogout />
@@ -97,17 +102,17 @@ const SideBar = () => {
   );
 
   return (
-    <div className="w-full lg:w-[75px] px-2 shadow lg:flex lg:flex-col flex flex-row justify-between items-center fixed lg:relative z-40 bottom-0 bg-white ">
+    <div className="w-full lg:w-[75px] px-2 shadow lg:flex lg:flex-col flex flex-row justify-between items-center fixed lg:relative z-40 bottom-0 bg-background border-t lg:border-r lg:border-t-0 border-border">
       <div className="hidden lg:my-5 lg:block">
         <IconBxHomeAlt
           width={24}
           height={24}
-          className="block dark:hidden cursor-pointer"
+          className="block cursor-pointer"
         />
         <IconBxHomeAlt
           width={24}
           height={24}
-          className="hidden dark:block cursor-pointer"
+          className="hidden cursor-pointer"
         />
       </div>
 
@@ -123,19 +128,13 @@ const SideBar = () => {
       <div className="w-20 my-5 lg:w-auto">
         <ul className="lg:block">
           <li className="hidden text-center lg:block">
-            <IconMoon
-              width={24}
-              height={24}
-              className="mx-auto cursor-pointer"
-            />
+            <ThemeToggle />
           </li>
           <li className="relative lg:mt-4 dropdown lg:dropup text-center">
             {renderDropdownMenu()}
           </li>
         </ul>
       </div>
-
-     
     </div>
   );
 };
