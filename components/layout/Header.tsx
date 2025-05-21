@@ -1,71 +1,83 @@
+import { IconTelephone } from "@/components/icons/phone";
+import { IconVideoCamera } from "@/components/icons/video-camera";
+import { IconEllipsis } from "@/components/icons/ellipsis";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { IconSearch } from "../icons/search";
-import { IconTelephone } from "../icons/phone";
-import { IconVideoCamera } from "../icons/video-camera";
-import { IconUsergroupAdd } from "../icons/usergroup-add";
-import { IconEllipsis } from "../icons/ellipsis";
-import { IconLeft } from "../icons/left";
+import { Conversation } from "@/types/conversation";
+import { useUser } from "@/contexts/UserContext";
+import { IconArrowLeft } from "../icons/arrow-left";
 
-const ICON_ACTIONS = [
-  { icon: IconSearch, ariaLabel: "Search" },
-  { icon: IconTelephone, ariaLabel: "Call" },
-  { icon: IconVideoCamera, ariaLabel: "Video Call" },
-  { icon: IconUsergroupAdd, ariaLabel: "Add Group" },
-  { icon: IconEllipsis, ariaLabel: "More Options" },
-];
-
-interface ChatContentProps {
-  isChatVisible: boolean;
-  toggleChat: () => void;
+interface HeaderProps {
+  selectedConversation: Conversation;
+  handleBack: () => void;
 }
 
-const Header = ({ isChatVisible, toggleChat }: ChatContentProps) => {
-  console.log("isChatVisible:", isChatVisible);
-  return (
-    <div className="p-4 border-b border-border lg:p-6">
-      <div className="grid items-center grid-cols-12">
-        {/* Left Section */}
-        <div className="col-span-8 sm:col-span-4">
-          <div className="flex items-center gap-2">
-            <div
-              className="block ltr:mr-2 rtl:ml-2 lg:hidden cursor-pointer"
-              onClick={toggleChat}
-            >
-              <IconLeft />
-            </div>
-            <div className="rtl:ml-3 ltr:mr-3 relative">
-              <Avatar>
-                <AvatarImage src="https://github.com/shadcn.png" />
-                <AvatarFallback>CN</AvatarFallback>
-              </Avatar>
-              <span className="absolute w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full top-7 right-0"></span>
-            </div>
-            <div className="flex-grow overflow-hidden">
-              <h5 className="mb-0 truncate text-16 ltr:block rtl:hidden font-semibold text-foreground">
-                Quang Huy
-              </h5>
-            </div>
-          </div>
-        </div>
+const Header: React.FC<HeaderProps> = ({
+  selectedConversation,
+  handleBack,
+}) => {
+  const { user } = useUser();
 
-        {/* Right Section */}
-        <div className="col-span-4 sm:col-span-8">
-          <ul className="flex items-center justify-end gap-5">
-            {ICON_ACTIONS.map(({ icon: Icon, ariaLabel }, index) => (
-              <li key={index}>
-                <button
-                  type="button"
-                  className="text-xl text-muted-foreground border-0 btn lg:block hover:text-foreground transition-colors"
-                  data-tw-toggle="modal"
-                  data-tw-target="#audiCallModal"
-                  aria-label={ariaLabel}
-                >
-                  <Icon />
-                </button>
-              </li>
-            ))}
-          </ul>
+  // Lấy người tham gia không phải là người dùng hiện tại
+  const otherParticipant = selectedConversation.participants.find(
+    (p) => p.user._id !== user?.id
+  );
+
+  const name =
+    selectedConversation.type === "direct"
+      ? otherParticipant?.user.username
+      : selectedConversation.name || "Unnamed Group";
+
+  const avatar =
+    selectedConversation.type === "direct"
+      ? otherParticipant?.user.avatar
+      : selectedConversation.avatar;
+
+  const status =
+    selectedConversation.type === "direct"
+      ? otherParticipant?.user.status
+      : selectedConversation.metadata.onlineCount > 0
+      ? "online"
+      : "offline";
+
+  return (
+    <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+      <div className="flex items-center gap-3">
+        <div className="lg:hidden">
+          <button
+            onClick={handleBack}
+            className=" left-4 top-4 z-10 p-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <IconArrowLeft />
+          </button>
         </div>
+        <div className="relative">
+          <Avatar className="border-[1px] border-blue-200">
+            <AvatarImage src={avatar} />
+            <AvatarFallback>{name?.charAt(0).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          {status === "online" && (
+            <span className="absolute w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full top-7 right-0"></span>
+          )}
+        </div>
+        <div>
+          <h5 className="mb-0 text-base font-semibold text-foreground">
+            {name}
+          </h5>
+          <p className="text-muted-foreground text-sm">
+            {status === "online" ? "Online" : "Offline"}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <button className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+          <IconTelephone />
+        </button>
+        <button className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+          <IconVideoCamera />
+        </button>
+        <button className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+          <IconEllipsis />
+        </button>
       </div>
     </div>
   );

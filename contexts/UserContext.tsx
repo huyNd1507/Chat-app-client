@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { createContext, useContext, ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getMe } from '@/services/auth';
-import { AxiosResponse } from 'axios';
+import { createContext, useContext, ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getMe } from "@/services/auth";
+import { AxiosResponse } from "axios";
 
 interface UserSettings {
   notifications: {
@@ -50,6 +50,7 @@ interface User {
   id: string;
   email: string;
   fullname: string;
+  username: string;
   avatar?: string;
   phoneNumber?: string;
   bio?: string;
@@ -72,12 +73,12 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const { data, isLoading, error } = useQuery<AxiosResponse<ApiResponse>>({
-    queryKey: ['user'],
+    queryKey: ["user"],
     queryFn: getMe,
-    staleTime: 5 * 60 * 1000, 
-    gcTime: 10 * 60 * 1000, 
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
-    refetchOnMount: true, 
+    refetchOnMount: true,
     refetchOnReconnect: false,
     retry: false,
   });
@@ -94,7 +95,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 export function useUser() {
   const context = useContext(UserContext);
   if (context === undefined) {
-    throw new Error('useUser must be used within a UserProvider');
+    throw new Error("useUser must be used within a UserProvider");
   }
   return context;
-} 
+}

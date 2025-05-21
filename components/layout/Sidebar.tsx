@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -23,6 +24,7 @@ import { SVGProps, ComponentType } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { ThemeToggle } from "../theme/ThemeToggle";
 import { useAuth } from "@/hooks/use-auth";
+import { useSocket } from "@/contexts/SocketContext";
 
 type NavItemProps = {
   href: string;
@@ -43,6 +45,8 @@ const SideBar = () => {
   const pathname = usePathname();
   const { user } = useUser();
   const { logout } = useAuth();
+  const { isConnected } = useSocket();
+  const [isChatVisible, setIsChatVisible] = useState(false);
 
   const renderNavItem = ({ href, label, icon: Icon }: NavItemProps) => {
     const isActive = pathname === href;
@@ -55,7 +59,9 @@ const SideBar = () => {
         <Link
           href={href}
           className={`tab-button relative flex items-center justify-center mx-auto h-14 w-14 leading-[14px] group/tab my-1 rounded-lg transition-colors ${
-            isActive ? "bg-secondary text-secondary-foreground" : "hover:bg-muted"
+            isActive
+              ? "bg-secondary text-secondary-foreground"
+              : "hover:bg-muted"
           }`}
         >
           <div className="absolute items-center hidden -top-10 ltr:left-0 group-hover/tab:flex rtl:right-0">
@@ -73,10 +79,13 @@ const SideBar = () => {
   const renderDropdownMenu = () => (
     <DropdownMenu>
       <DropdownMenuTrigger>
-        <Avatar className="cursor-pointer">
+        <Avatar className="cursor-pointer relative">
           <AvatarImage src={user?.avatar || "https://github.com/shadcn.png"} />
           <AvatarFallback>{user?.fullname?.charAt(0) || "U"}</AvatarFallback>
         </Avatar>
+        {isConnected && (
+          <span className="absolute w-3 h-3 bg-green-500 border-2 border-background rounded-full top-0 right-0 z-50"></span>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="relative w-40 lg:left-8">
         {[
@@ -102,7 +111,7 @@ const SideBar = () => {
   );
 
   return (
-    <div className="w-full lg:w-[75px] px-2 shadow lg:flex lg:flex-col flex flex-row justify-between items-center fixed lg:relative z-40 bottom-0 bg-background border-t lg:border-r lg:border-t-0 border-border">
+    <div className="w-full lg:w-[75px] md:h-full  px-2 shadow lg:flex lg:flex-col flex flex-row justify-between items-center fixed lg:relative z-40 bottom-0 bg-background border-t lg:border-r lg:border-t-0 border-border">
       <div className="hidden lg:my-5 lg:block">
         <IconBxHomeAlt
           width={24}

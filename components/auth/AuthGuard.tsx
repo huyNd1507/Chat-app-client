@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter, usePathname } from "next/navigation";
@@ -14,7 +14,7 @@ const AuthGuard = ({ children }: AuthGuardProps) => {
   const pathname = usePathname();
 
   // List of paths that don't require authentication
-  const publicPaths = ['/login', '/register', '/forgot-password'];
+  const publicPaths = ["/login", "/register", "/forgot-password"];
 
   useEffect(() => {
     // Don't do anything while loading
@@ -49,4 +49,4 @@ const AuthGuard = ({ children }: AuthGuardProps) => {
   return <>{children}</>;
 };
 
-export default AuthGuard; 
+export default AuthGuard;

@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import MainLayout from "@/components/layout/MainLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,7 +26,7 @@ interface ApiResponse {
 
 const ProfilePage = () => {
   const { data: userData } = useQuery<AxiosResponse<ApiResponse>>({
-    queryKey: ['user'],
+    queryKey: ["user"],
     queryFn: getMe,
     staleTime: 0,
     gcTime: 0,
@@ -34,13 +34,17 @@ const ProfilePage = () => {
 
   const { user } = useUser();
 
+  // console.log("user")
+
   return (
     <MainLayout>
       <div className="lg:w-[390px]">
         <div className="p-6">
           <h4 className="mb-0 font-bold text-foreground">My Profile</h4>
           <Avatar className="w-[90px] h-[90px] mx-auto border-2 border-border mt-6">
-            <AvatarImage src={user?.avatar || "https://github.com/shadcn.png"} />
+            <AvatarImage
+              src={user?.avatar || "https://github.com/shadcn.png"}
+            />
             <AvatarFallback>{user?.fullname?.charAt(0) || "U"}</AvatarFallback>
           </Avatar>
           <h4 className="mb-0 font-bold text-foreground pt-3 text-center">
@@ -56,7 +60,7 @@ const ProfilePage = () => {
               Name
             </Label>
             <h4 className="scroll-m-20 text-[16px] font-[500] tracking-tight text-foreground">
-              {user?.fullname}
+              {user?.username}
             </h4>
           </div>
           <div>
