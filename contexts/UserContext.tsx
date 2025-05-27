@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getMe } from "@/services/auth";
+import { getMe, logout as logoutApi } from "@/services/auth";
 import { AxiosResponse } from "axios";
+import { useRouter } from "next/navigation";
 
 interface UserSettings {
   notifications: {
@@ -46,50 +47,58 @@ interface UserData {
   badges: any[];
 }
 
-interface User {
-  id: string;
-  email: string;
-  fullname: string;
-  username: string;
-  avatar?: string;
-  phoneNumber?: string;
-  bio?: string;
-  settings?: UserSettings;
-}
-
 interface ApiResponse {
-  data: User;
+  success: boolean;
   message: string;
-  status: number;
+  data: UserData;
 }
 
 interface UserContextType {
-  user: User | null;
+  user: ApiResponse | null;
+  setUser: (user: ApiResponse | null) => void;
   isLoading: boolean;
-  error: any;
+  logout: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-export function UserProvider({ children }: { children: ReactNode }) {
-  const { data, isLoading, error } = useQuery<AxiosResponse<ApiResponse>>({
-    queryKey: ["user"],
-    queryFn: getMe,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    refetchOnReconnect: false,
-    retry: false,
-  });
+export function UserProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<ApiResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
-  const value: UserContextType = {
-    user: data?.data?.data || null,
-    isLoading,
-    error,
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await getMe();
+        setUser(response.data);
+      } catch (error) {
+        console.error("Error fetching user:", error);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+  const logout = async () => {
+    try {
+      await logoutApi();
+      setUser(null);
+      router.push("/login");
+    } catch (error) {
+      console.error("Error logging out:", error);
+      throw error;
+    }
   };
 
-  return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
+  return (
+    <UserContext.Provider value={{ user, setUser, isLoading, logout }}>
+      {children}
+    </UserContext.Provider>
+  );
 }
 
 export function useUser() {

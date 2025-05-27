@@ -5,18 +5,19 @@ import type { NextRequest } from "next/server";
 const publicPaths = ["/login", "/register", "/forgot-password"];
 
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get("token");
-  const { pathname } = request.nextUrl;
+  const token = request.cookies.get("token")?.value;
+  const isAuthPage =
+    request.nextUrl.pathname.startsWith("/login") ||
+    request.nextUrl.pathname.startsWith("/register");
 
-  // Allow public paths
-  if (publicPaths.includes(pathname)) {
-    return NextResponse.next();
+  // If user is not logged in and trying to access protected routes
+  if (!token && !isAuthPage) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Redirect to login if no token
-  if (!token) {
-    const url = new URL("/login", request.url);
-    return NextResponse.redirect(url);
+  // If user is logged in and trying to access auth pages
+  if (token && isAuthPage) {
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();
@@ -30,7 +31,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - public folder
      */
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|public).*)",
   ],
 };

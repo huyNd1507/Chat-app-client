@@ -7,6 +7,7 @@ import React, {
   useCallback,
 } from "react";
 import { io, Socket } from "socket.io-client";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface OnlineUser {
   userId: string;
@@ -73,6 +74,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const [messages, setMessages] = useState<Map<string, Message[]>>(new Map());
   const [isConnected, setIsConnected] = useState(false);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     // Initialize socket connection
@@ -128,6 +130,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
       "message:new",
       (data: { message: Message; conversationId: string }) => {
         console.log("New message received:", data);
+
+        // Update messages state
         setMessages((prev) => {
           const newMap = new Map(prev);
           const conversationMessages = newMap.get(data.conversationId) || [];
@@ -137,6 +141,29 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
           ]);
           return newMap;
         });
+
+        // Update query cache
+        queryClient.setQueryData(
+          ["messages", data.conversationId],
+          (oldData: any) => {
+            if (!oldData) return oldData;
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page: any, index: number) => {
+                if (index === 0) {
+                  return {
+                    ...page,
+                    data: {
+                      ...page.data,
+                      messages: [data.message, ...page.data.messages],
+                    },
+                  };
+                }
+                return page;
+              }),
+            };
+          }
+        );
       }
     );
 

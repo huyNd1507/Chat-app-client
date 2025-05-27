@@ -1,11 +1,16 @@
-// import { IconPaperclip } from "../icons/paperclip";
-// import { IconEmoji } from "../icons/emoji";
+"use client";
+
 import { IconSend } from "../icons/send";
 import { Conversation } from "@/types/conversation";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useSocket } from "@/contexts/SocketContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { sendMessage } from "@/services/message";
+import { uploadFile } from "@/services/upload";
+import { IconFile } from "../icons/file";
+import { IconIconEmotionHappy } from "../icons/icon-emotion-happy";
+import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
+import { toast } from "sonner";
 
 interface FooterProps {
   selectedConversation: Conversation | null;
@@ -13,49 +18,15 @@ interface FooterProps {
 
 const Footer = ({ selectedConversation }: FooterProps) => {
   const [message, setMessage] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const { socket, sendMessage: socketSendMessage } = useSocket();
-  const queryClient = useQueryClient();
-
-  console.log("selectedConversation", selectedConversation);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || !selectedConversation) return;
 
     try {
-      // Gửi tin nhắn qua API
-      const response = await sendMessage({
-        conversationId: selectedConversation._id,
-        content: message.trim(),
-        type: "text",
-      });
-
-      // Cập nhật UI ngay lập tức với dữ liệu từ API
-      queryClient.setQueryData(
-        ["messages", selectedConversation._id],
-        (oldData: any) => {
-          if (!oldData) return oldData;
-          const newMessage = response.data;
-
-          return {
-            ...oldData,
-            pages: oldData.pages.map((page: any, index: number) => {
-              if (index === 0) {
-                return {
-                  ...page,
-                  data: {
-                    ...page.data,
-                    messages: [newMessage, ...page.data.messages],
-                  },
-                };
-              }
-              return page;
-            }),
-          };
-        }
-      );
-
-      // Gửi tin nhắn qua socket để thông báo cho các client khác
       socketSendMessage({
         conversationId: selectedConversation._id,
         content: message.trim(),
@@ -68,11 +39,46 @@ const Footer = ({ selectedConversation }: FooterProps) => {
     }
   };
 
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    setMessage((prev) => prev + emojiData.emoji);
+    setShowEmojiPicker(false);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedConversation) return;
+
+    try {
+      const uploadResponse = await uploadFile(file);
+      if (!uploadResponse.success || !uploadResponse.files[0]) {
+        throw new Error("Upload failed");
+      }
+
+      socketSendMessage({
+        conversationId: selectedConversation._id,
+        content: {
+          media: {
+            url: uploadResponse.files[0].webViewLink,
+            mimeType: file.type,
+            size: file.size,
+            caption: file.name,
+          },
+        },
+        type: "file",
+      });
+
+      toast.success("File uploaded successfully");
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      toast.error("Failed to upload file");
+    }
+  };
+
   return (
-    <div className="p-4 border-t border-border lg:p-6 ">
+    <div className="p-4 border-t border-border lg:p-6">
       <form onSubmit={handleSendMessage}>
         <div className="flex items-center gap-2">
-          <div className="flex-grow">
+          <div className="flex-grow relative">
             <input
               type="text"
               className="w-full px-4 py-2 text-foreground bg-muted border-0 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
@@ -85,21 +91,35 @@ const Footer = ({ selectedConversation }: FooterProps) => {
               onChange={(e) => setMessage(e.target.value)}
               disabled={!selectedConversation}
             />
+            {showEmojiPicker && (
+              <div className="absolute bottom-full mb-2">
+                <EmojiPicker onEmojiClick={handleEmojiClick} />
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleFileUpload}
+              disabled={!selectedConversation}
+            />
             <button
               type="button"
               className="text-xl text-muted-foreground border-0 btn hover:text-foreground transition-colors"
               disabled={!selectedConversation}
+              onClick={() => fileInputRef.current?.click()}
             >
-              {/* <IconPaperclip /> */}
+              <IconFile />
             </button>
             <button
               type="button"
               className="text-xl text-muted-foreground border-0 btn hover:text-foreground transition-colors"
               disabled={!selectedConversation}
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             >
-              {/* <IconEmoji /> */}
+              <IconIconEmotionHappy />
             </button>
             <button
               type="submit"

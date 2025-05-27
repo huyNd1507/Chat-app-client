@@ -32,24 +32,22 @@ const ContactPage = () => {
       const response = await getConversations({ type: "direct" });
       const conversations = response.data.conversations;
 
-      // Check if conversation already exists
       const existingConversation = conversations.find((conv: any) => {
         const participants = conv.participants.map((p: any) => p.user._id);
         return participants.includes(contactId);
       });
 
       if (existingConversation) {
-        router.push(`/`);
+        router.push(`/chat/${existingConversation._id}`);
         return;
       }
 
-      await createConversation({
+      const newConversation = await createConversation({
         type: "direct",
         participants: [contactId],
       });
 
-      // Navigate to the new conversation
-      router.push(`/`);
+      router.push(`/chat/${newConversation.data._id}`);
     } catch (error) {
       console.error("Error handling contact click:", error);
     }

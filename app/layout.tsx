@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/contexts/Providers";
 import { UserProvider } from "@/contexts/UserContext";
 
-
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -32,9 +31,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
-          <UserProvider>
-          {children}
-          </UserProvider>
+          <UserProvider>{children}</UserProvider>
           <Toaster />
         </Providers>
       </body>

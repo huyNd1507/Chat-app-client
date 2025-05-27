@@ -1,7 +1,4 @@
-import * as React from "react";
-import { SVGProps } from "react";
-
-export const IconUser = ({ className }: { className?: string }) => {
+export const IconCamera = ({ className }: { className?: string }) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -15,8 +12,8 @@ export const IconUser = ({ className }: { className?: string }) => {
       strokeLinejoin="round"
       className={className}
     >
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+      <circle cx="12" cy="13" r="3" />
     </svg>
   );
 };

@@ -1,4 +1,4 @@
-import axiosClient from "."
+import axiosClient from ".";
 
 interface LoginPayload {
   email: string;
@@ -13,17 +13,21 @@ interface RegisterPayload {
 }
 
 export const register = async (payload: RegisterPayload): Promise<any> => {
-    return await axiosClient.post<any>("/auth/register", payload);
+  return await axiosClient.post<any>("/auth/register", payload);
 };
 
 export const login = async (payload: LoginPayload): Promise<any> => {
-    return await axiosClient.post<any>("/auth/login", payload);
+  return await axiosClient.post<any>("/auth/login", payload);
 };
 
 export const logout = async () => {
-   return await axiosClient.post<any>("/auth/logout");
+  return await axiosClient.post<any>("/auth/logout");
 };
 
 export const getMe = async () => {
-    return await axiosClient.get("/auth/getMe");
+  return await axiosClient.get("/auth/getMe");
+};
+
+export const updateProfile = async (id: string, payload: any): Promise<any> => {
+  return await axiosClient.put<any>(`/auth/user/${id}`, payload);
 };

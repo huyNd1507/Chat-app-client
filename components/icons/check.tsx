@@ -1,7 +1,4 @@
-import * as React from "react";
-import { SVGProps } from "react";
-
-export const IconUser = ({ className }: { className?: string }) => {
+export const IconCheck = ({ className }: { className?: string }) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -15,8 +12,7 @@ export const IconUser = ({ className }: { className?: string }) => {
       strokeLinejoin="round"
       className={className}
     >
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   );
 };

@@ -71,3 +71,13 @@ export const deleteConversation = async (
 ): Promise<any> => {
   return await axiosClient.delete<any>(`/conversation/${conversationId}`);
 };
+
+export const deleteParticipantConversation = async (
+  conversationId: string,
+  payload: any
+): Promise<any> => {
+  return await axiosClient.delete<any>(
+    `/conversation/${conversationId}/participants`,
+    payload
+  );
+};

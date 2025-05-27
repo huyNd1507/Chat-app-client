@@ -107,7 +107,7 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
         {reversedPages.map((page) =>
           [...page.data.messages].reverse().map((message: any) => {
             // Tin nhắn của người dùng hiện tại luôn hiển thị bên phải
-            const isOwnMessage = message.sender._id === user?.id;
+            const isOwnMessage = message.sender._id === user?.data?.id;
 
             return (
               <div
@@ -168,7 +168,7 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
                             <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
+                              className="text-destructive focus:text-destructive cursor-pointer"
                               onClick={() => handleDeleteMessage(message._id)}
                             >
                               Delete

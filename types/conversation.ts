@@ -25,6 +25,13 @@ export interface LastMessage {
   createdAt: string;
 }
 
+interface Admin {
+  user: string;
+  role: string;
+  assignedAt: string;
+  _id: string;
+}
+
 export interface Conversation {
   _id: string;
   type: "direct" | "group" | "channel" | "broadcast";
@@ -38,4 +45,10 @@ export interface Conversation {
     onlineCount: number;
   };
   unreadCount: any[];
+  admins?: Admin[];
+  isActive: boolean;
+  isArchived: boolean;
+  isDeleted: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
