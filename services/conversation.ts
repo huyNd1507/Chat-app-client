@@ -35,6 +35,10 @@ interface UpdateConversationPayload {
   };
 }
 
+interface DeleteParticipantsPayload {
+  participants: string[];
+}
+
 export const getConversations = async ({
   page = 1,
   limit = 10,
@@ -74,10 +78,10 @@ export const deleteConversation = async (
 
 export const deleteParticipantConversation = async (
   conversationId: string,
-  payload: any
+  payload: DeleteParticipantsPayload
 ): Promise<any> => {
   return await axiosClient.delete<any>(
     `/conversation/${conversationId}/participants`,
-    payload
+    { data: payload }
   );
 };

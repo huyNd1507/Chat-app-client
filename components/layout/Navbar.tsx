@@ -3,7 +3,7 @@
 import { getConversations } from "@/services/conversation";
 import { Conversation } from "@/types/conversation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChatItem } from "../card/ChatItem";
+// import { ChatItem } from "../card/ChatItem";
 import { IconSearch } from "../icons/search";
 import { IconUsergroupAdd } from "../icons/usergroup-add";
 import { Separator } from "@/components/ui/separator";
@@ -15,7 +15,7 @@ import {
   getConversations as getConversationsService,
 } from "@/services/conversation";
 import { getContacts } from "@/services/user";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -38,13 +38,16 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
 import { ThemeToggle } from "../theme/ThemeToggle";
 import { IconSettings } from "../icons/settings";
+import ChatItem from "../card/ChatItem";
+import CreateGroupDialog from "../dialog/CreateGroupDialog";
 
 const NavBar = () => {
   const router = useRouter();
-  const { onlineUsers } = useSocket();
+  const { onlineUsers, socket } = useSocket();
   const { theme } = useTheme();
   const { user, logout } = useUser();
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebounce(searchQuery, 500);
   const queryClient = useQueryClient();
@@ -53,6 +56,34 @@ const NavBar = () => {
     queryKey: ["conversations"],
     queryFn: () => getConversations(),
   });
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleConversationUpdate = (data: { conversation: Conversation }) => {
+      queryClient.setQueryData(
+        ["conversations"],
+        (oldData: { data: { conversations: Conversation[] } } | undefined) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            data: {
+              ...oldData.data,
+              conversations: oldData.data.conversations.map((conv) =>
+                conv._id === data.conversation._id ? data.conversation : conv
+              ),
+            },
+          };
+        }
+      );
+    };
+
+    socket.on("conversation:updated", handleConversationUpdate);
+
+    return () => {
+      socket.off("conversation:updated", handleConversationUpdate);
+    };
+  }, [socket, queryClient]);
 
   console.log("conversationsData", conversationsData);
 
@@ -118,10 +149,18 @@ const NavBar = () => {
         <h4 className="mb-0 font-bold text-foreground">Chats</h4>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setIsSearchModalOpen(true)}
+            onClick={() => setIsCreateGroupModalOpen(true)}
             className="p-2 hover:bg-accent rounded-full transition-colors"
+            title="Create Group"
           >
             <IconUsergroupAdd className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => setIsSearchModalOpen(true)}
+            className="p-2 hover:bg-accent rounded-full transition-colors"
+            title="Search Users"
+          >
+            <IconSearch className="w-5 h-5" />
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -247,6 +286,12 @@ const NavBar = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Create Group Dialog */}
+      <CreateGroupDialog
+        open={isCreateGroupModalOpen}
+        onOpenChange={setIsCreateGroupModalOpen}
+      />
     </div>
   );
 };

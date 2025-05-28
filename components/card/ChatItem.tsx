@@ -21,16 +21,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import { useSocket } from "@/contexts/SocketContext";
+import { toast } from "sonner";
 
 interface ChatItemProps {
   conversation: Conversation;
 }
 
-export const ChatItem: React.FC<ChatItemProps> = ({ conversation }) => {
+export default function ChatItem({ conversation }: ChatItemProps) {
   const { user } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
+  const { socket, typingUsers, onlineUsers } = useSocket();
+  const [isTyping, setIsTyping] = useState(false);
+  const [typingNames, setTypingNames] = useState<string[]>([]);
 
   console.log("conversation", conversation);
 
@@ -53,8 +58,11 @@ export const ChatItem: React.FC<ChatItemProps> = ({ conversation }) => {
         if (isSelected) {
           router.push("/");
         }
+        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        toast.success("Conversation deleted successfully");
       } catch (error) {
         console.error("Error deleting conversation:", error);
+        toast.error("Failed to delete conversation");
       }
     }
   };
@@ -99,6 +107,114 @@ export const ChatItem: React.FC<ChatItemProps> = ({ conversation }) => {
 
   console.log("lastMessage", lastMessage);
 
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleConversationUpdate = (data: { conversation: Conversation }) => {
+      if (data.conversation._id === conversation._id) {
+        // Cập nhật conversation trong cache
+        queryClient.setQueryData(
+          ["conversations"],
+          (
+            oldData: { data: { conversations: Conversation[] } } | undefined
+          ) => {
+            if (!oldData) return oldData;
+            return {
+              ...oldData,
+              data: {
+                ...oldData.data,
+                conversations: oldData.data.conversations.map((conv) =>
+                  conv._id === data.conversation._id ? data.conversation : conv
+                ),
+              },
+            };
+          }
+        );
+      }
+    };
+
+    socket.on("conversation:updated", handleConversationUpdate);
+
+    return () => {
+      socket.off("conversation:updated", handleConversationUpdate);
+    };
+  }, [socket, conversation._id, queryClient]);
+
+  useEffect(() => {
+    const typingUsersInConversation = typingUsers.filter(
+      (typingUser) =>
+        typingUser.conversationId === conversation._id &&
+        typingUser.userId !== user?.data?.id
+    );
+
+    setIsTyping(typingUsersInConversation.length > 0);
+
+    // Get names of typing users
+    const names = typingUsersInConversation.map((typingUser) => {
+      const participant = conversation.participants.find(
+        (p) => p.user._id === typingUser.userId
+      );
+      return participant?.user.username || "Someone";
+    });
+
+    setTypingNames(names);
+  }, [
+    typingUsers,
+    conversation._id,
+    user?.data?.id,
+    conversation.participants,
+  ]);
+
+  const handleClick = () => {
+    router.push(`/chat/${conversation._id}`);
+  };
+
+  const getTitle = () => {
+    if (conversation.type === "direct") {
+      return otherParticipant?.user.username || "Unknown User";
+    }
+    return `# ${conversation.name}`;
+  };
+
+  const getAvatar = () => {
+    if (conversation.type === "direct") {
+      return otherParticipant?.user.avatar;
+    }
+    return conversation.avatar;
+  };
+
+  const getStatus = () => {
+    if (conversation.type === "direct") {
+      return otherParticipant?.user.status;
+    }
+    return conversation.metadata.onlineCount > 0 ? "online" : "offline";
+  };
+
+  const getLastMessage = () => {
+    if (isTyping) {
+      if (typingNames.length === 1) {
+        return `${typingNames[0]} is typing...`;
+      } else if (typingNames.length === 2) {
+        return `${typingNames[0]} and ${typingNames[1]} are typing...`;
+      } else if (typingNames.length > 2) {
+        return `${typingNames[0]} and ${
+          typingNames.length - 1
+        } others are typing...`;
+      }
+      return "Someone is typing...";
+    }
+    if (!conversation.lastMessage) {
+      return "No messages yet";
+    }
+    if (conversation.lastMessage.type === "text") {
+      return conversation.lastMessage.content.text;
+    }
+    if (conversation.lastMessage.type === "file") {
+      return "Sent a file";
+    }
+    return "Sent a message";
+  };
+
   return (
     <Link href={`/chat/${conversation?._id}`}>
       <li
@@ -109,19 +225,25 @@ export const ChatItem: React.FC<ChatItemProps> = ({ conversation }) => {
         <div className="flex gap-3">
           <div className="relative self-center">
             <Avatar className="border-[1px] border-blue-200">
-              <AvatarImage src={avatar} />
-              <AvatarFallback>{name?.charAt(0).toUpperCase()}</AvatarFallback>
+              <AvatarImage src={getAvatar()} />
+              <AvatarFallback>
+                {getTitle().charAt(0).toUpperCase()}
+              </AvatarFallback>
             </Avatar>
-            {status === "online" && (
+            {getStatus() === "online" && (
               <span className="absolute w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full top-7 right-0"></span>
             )}
           </div>
           <div className="flex-grow overflow-hidden">
             <h5 className="mb-1 text-base truncate font-semibold text-foreground">
-              {name}
+              {getTitle()}
             </h5>
-            <p className="text-muted-foreground truncate text-sm">
-              {lastMessage}
+            <p
+              className={`text-sm truncate ${
+                isTyping ? "text-primary" : "text-muted-foreground"
+              }`}
+            >
+              {getLastMessage()}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -161,4 +283,4 @@ export const ChatItem: React.FC<ChatItemProps> = ({ conversation }) => {
       </li>
     </Link>
   );
-};
+}

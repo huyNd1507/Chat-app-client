@@ -77,7 +77,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    // Initialize socket connection
     const serverUrl =
       process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:8000";
     console.log("Connecting to socket server at:", serverUrl);
@@ -142,7 +141,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
           return newMap;
         });
 
-        // Update query cache
+        // Update messages cache for the specific conversation
         queryClient.setQueryData(
           ["messages", data.conversationId],
           (oldData: any) => {
@@ -151,6 +150,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
               ...oldData,
               pages: oldData.pages.map((page: any, index: number) => {
                 if (index === 0) {
+                  // Check if message already exists in the cache
+                  const messageExists = page.data.messages.some(
+                    (msg: Message) => msg._id === data.message._id
+                  );
+                  if (messageExists) return page;
+
                   return {
                     ...page,
                     data: {
@@ -164,11 +169,81 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
             };
           }
         );
+
+        // Update conversations cache to show new message in conversation list
+        queryClient.setQueryData(["conversations"], (oldData: any) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            data: {
+              ...oldData.data,
+              conversations: oldData.data.conversations.map((conv: any) =>
+                conv._id === data.conversationId
+                  ? {
+                      ...conv,
+                      lastMessage: data.message,
+                      updatedAt: new Date().toISOString(),
+                    }
+                  : conv
+              ),
+            },
+          };
+        });
+
+        // Force refetch conversations to ensure real-time updates
+        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      }
+    );
+
+    // Message read status events
+    socketRef.current.on(
+      "message:read",
+      (data: { messageId: string; userId: string; readAt: Date }) => {
+        console.log("Message read status updated:", data);
+
+        // Update query cache for all conversations
+        queryClient.setQueriesData(
+          { queryKey: ["messages"] },
+          (oldData: any) => {
+            if (!oldData) return oldData;
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page: any) => ({
+                ...page,
+                data: {
+                  ...page.data,
+                  messages: page.data.messages.map((msg: Message) => {
+                    if (msg._id === data.messageId) {
+                      // Check if user already read the message
+                      const alreadyRead = msg.readBy.some(
+                        (read) => read.user === data.userId
+                      );
+                      if (alreadyRead) return msg;
+
+                      return {
+                        ...msg,
+                        readBy: [
+                          ...msg.readBy,
+                          {
+                            user: data.userId,
+                            readAt: data.readAt,
+                          },
+                        ],
+                      };
+                    }
+                    return msg;
+                  }),
+                },
+              })),
+            };
+          }
+        );
       }
     );
 
     // Typing events
     socketRef.current.on("typing:start", (data: TypingUser) => {
+      console.log("User started typing:", data);
       setTypingUsers((prev) => {
         const newMap = new Map(prev);
         newMap.set(data.userId, data);
@@ -177,6 +252,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     });
 
     socketRef.current.on("typing:stop", (data: TypingUser) => {
+      console.log("User stopped typing:", data);
       setTypingUsers((prev) => {
         const newMap = new Map(prev);
         newMap.delete(data.userId);
@@ -195,7 +271,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
         socketRef.current.disconnect();
       }
     };
-  }, []);
+  }, [queryClient]);
 
   // Socket actions
   const joinConversation = useCallback((conversationId: string) => {
@@ -208,7 +284,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const sendMessage = useCallback(
     (data: { conversationId: string; content: any; type: string }) => {
-      socketRef.current?.emit("message:send", data);
+      if (!socketRef.current?.connected) {
+        console.error("Socket is not connected");
+        return;
+      }
+      console.log("Sending message:", data);
+      socketRef.current.emit("message:send", data);
     },
     []
   );

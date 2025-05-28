@@ -2,15 +2,15 @@
 
 import { IconSend } from "../icons/send";
 import { Conversation } from "@/types/conversation";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useSocket } from "@/contexts/SocketContext";
 import { useQueryClient } from "@tanstack/react-query";
-import { sendMessage } from "@/services/message";
 import { uploadFile } from "@/services/upload";
 import { IconFile } from "../icons/file";
 import { IconIconEmotionHappy } from "../icons/icon-emotion-happy";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { toast } from "sonner";
+import { useUser } from "@/contexts/UserContext";
 
 interface FooterProps {
   selectedConversation: Conversation | null;
@@ -19,23 +19,92 @@ interface FooterProps {
 const Footer = ({ selectedConversation }: FooterProps) => {
   const [message, setMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const { socket, sendMessage: socketSendMessage } = useSocket();
+  const { sendMessage, startTyping, stopTyping, socket } = useSocket();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+  const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const { user } = useUser();
+
+  // Handle typing events
+  useEffect(() => {
+    if (!selectedConversation) return;
+
+    if (message.trim()) {
+      startTyping(selectedConversation._id);
+
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // Set new timeout to stop typing after 2 seconds of inactivity
+      typingTimeoutRef.current = setTimeout(() => {
+        stopTyping(selectedConversation._id);
+      }, 2000);
+    } else {
+      stopTyping(selectedConversation._id);
+    }
+
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [message, selectedConversation, startTyping, stopTyping]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || !selectedConversation) return;
+    if (
+      !message.trim() ||
+      !selectedConversation ||
+      !socket?.connected ||
+      !user?.data?.id
+    )
+      return;
 
     try {
-      socketSendMessage({
+      // Stop typing when sending message
+      stopTyping(selectedConversation._id);
+
+      // Gửi tin nhắn qua socket
+      sendMessage({
         conversationId: selectedConversation._id,
         content: message.trim(),
         type: "text",
       });
 
+      // Cập nhật cache của conversation để hiển thị tin nhắn mới ngay lập tức
+      queryClient.setQueryData(
+        ["conversations"],
+        (oldData: { data: { conversations: Conversation[] } } | undefined) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            data: {
+              ...oldData.data,
+              conversations: oldData.data.conversations.map((conv) =>
+                conv._id === selectedConversation._id
+                  ? {
+                      ...conv,
+                      lastMessage: {
+                        _id: Date.now().toString(), // Temporary ID
+                        content: { text: message.trim() },
+                        type: "text",
+                        sender: user.data.id,
+                        createdAt: new Date().toISOString(),
+                      },
+                    }
+                  : conv
+              ),
+            },
+          };
+        }
+      );
+
       setMessage("");
     } catch (error) {
       console.error("Error sending message:", error);
+      toast.error("Failed to send message");
     }
   };
 
@@ -54,7 +123,7 @@ const Footer = ({ selectedConversation }: FooterProps) => {
         throw new Error("Upload failed");
       }
 
-      socketSendMessage({
+      sendMessage({
         conversationId: selectedConversation._id,
         content: {
           media: {
@@ -66,6 +135,39 @@ const Footer = ({ selectedConversation }: FooterProps) => {
         },
         type: "file",
       });
+
+      // Cập nhật cache của conversation để hiển thị file mới ngay lập tức
+      queryClient.setQueryData(
+        ["conversations"],
+        (oldData: { data: { conversations: Conversation[] } } | undefined) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            data: {
+              ...oldData.data,
+              conversations: oldData.data.conversations.map((conv) =>
+                conv._id === selectedConversation._id
+                  ? {
+                      ...conv,
+                      lastMessage: {
+                        _id: Date.now().toString(), // Temporary ID
+                        content: {
+                          media: {
+                            url: uploadResponse.files[0].webViewLink,
+                            caption: file.name,
+                          },
+                        },
+                        type: "file",
+                        sender: selectedConversation.participants[0].user._id,
+                        createdAt: new Date().toISOString(),
+                      },
+                    }
+                  : conv
+              ),
+            },
+          };
+        }
+      );
 
       toast.success("File uploaded successfully");
     } catch (error) {

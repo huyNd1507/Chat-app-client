@@ -10,7 +10,7 @@ import {
 } from "@tanstack/react-query";
 import { getMessages, deleteMessage } from "@/services/message";
 import { formatDistanceToNow } from "date-fns";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 import {
   DropdownMenu,
@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSocket } from "@/contexts/SocketContext";
+import { IconTrash } from "../icons/trash";
 
 interface ChatContentProps {
   selectedConversation: Conversation;
@@ -28,7 +29,100 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useUser();
   const queryClient = useQueryClient();
-  const { socket } = useSocket();
+  const { socket, joinConversation, leaveConversation, typingUsers } =
+    useSocket();
+  const [typingUsersInConversation, setTypingUsersInConversation] = useState<
+    string[]
+  >([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [typingNames, setTypingNames] = useState<string[]>([]);
+
+  // Join conversation when component mounts
+  useEffect(() => {
+    if (!socket?.connected || !selectedConversation?._id) return;
+
+    console.log("Joining conversation:", selectedConversation._id);
+    joinConversation(selectedConversation._id);
+
+    return () => {
+      console.log("Leaving conversation:", selectedConversation._id);
+      leaveConversation(selectedConversation._id);
+    };
+  }, [
+    socket?.connected,
+    selectedConversation?._id,
+    joinConversation,
+    leaveConversation,
+  ]);
+
+  // Handle typing users
+  useEffect(() => {
+    const typingUsersInThisConversation = typingUsers
+      .filter(
+        (typingUser) =>
+          typingUser.conversationId === selectedConversation._id &&
+          typingUser.userId !== user?.data?.id
+      )
+      .map((typingUser) => typingUser.userId);
+
+    setTypingUsersInConversation(typingUsersInThisConversation);
+  }, [typingUsers, selectedConversation._id, user?.data?.id]);
+
+  // Handle typing status
+  useEffect(() => {
+    if (!socket || !selectedConversation) return;
+
+    const handleTypingStart = (data: {
+      userId: string;
+      conversationId: string;
+    }) => {
+      if (
+        data.conversationId === selectedConversation._id &&
+        data.userId !== user?.data?.id
+      ) {
+        const typingUser = selectedConversation.participants.find(
+          (p) => p.user._id === data.userId
+        );
+        if (typingUser) {
+          setTypingNames((prev) => {
+            if (!prev.includes(typingUser.user.username)) {
+              return [...prev, typingUser.user.username];
+            }
+            return prev;
+          });
+          setIsTyping(true);
+        }
+      }
+    };
+
+    const handleTypingStop = (data: {
+      userId: string;
+      conversationId: string;
+    }) => {
+      if (
+        data.conversationId === selectedConversation._id &&
+        data.userId !== user?.data?.id
+      ) {
+        const typingUser = selectedConversation.participants.find(
+          (p) => p.user._id === data.userId
+        );
+        if (typingUser) {
+          setTypingNames((prev) =>
+            prev.filter((name) => name !== typingUser.user.username)
+          );
+          setIsTyping(typingNames.length > 1);
+        }
+      }
+    };
+
+    socket.on("typing:start", handleTypingStart);
+    socket.on("typing:stop", handleTypingStop);
+
+    return () => {
+      socket.off("typing:start", handleTypingStart);
+      socket.off("typing:stop", handleTypingStop);
+    };
+  }, [socket, selectedConversation, user?.data?.id, typingNames]);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } =
     useInfiniteQuery({
@@ -74,6 +168,41 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
     }
   };
 
+  // Handle new messages
+  useEffect(() => {
+    if (!socket?.connected || !selectedConversation?._id) return;
+
+    const handleNewMessage = (data: {
+      message: any;
+      conversationId: string;
+    }) => {
+      console.log("New message received in ChatContent:", data);
+      if (data.conversationId === selectedConversation._id) {
+        // Scroll to bottom when new message arrives in current conversation
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    };
+
+    socket.on("message:new", handleNewMessage);
+
+    return () => {
+      socket.off("message:new", handleNewMessage);
+    };
+  }, [socket?.connected, selectedConversation?._id]);
+
+  const getTypingText = () => {
+    if (typingNames.length === 1) {
+      return `${typingNames[0]} is typing...`;
+    } else if (typingNames.length === 2) {
+      return `${typingNames[0]} and ${typingNames[1]} are typing...`;
+    } else if (typingNames.length > 2) {
+      return `${typingNames[0]} and ${
+        typingNames.length - 1
+      } others are typing...`;
+    }
+    return "";
+  };
+
   if (status === "pending") {
     return (
       <div className="flex items-center justify-center h-full">
@@ -106,7 +235,6 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
       <div className="space-y-4">
         {reversedPages.map((page) =>
           [...page.data.messages].reverse().map((message: any) => {
-            // Tin nhắn của người dùng hiện tại luôn hiển thị bên phải
             const isOwnMessage = message.sender._id === user?.data?.id;
 
             return (
@@ -141,20 +269,22 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
                       }`}
                     >
                       <p className="mb-0">{message.content.text}</p>
-                      <p
-                        className={`mt-1 mb-0 text-xs text-right ${
-                          isOwnMessage
-                            ? "text-primary-foreground/50"
-                            : "text-muted-foreground"
-                        }`}
-                      >
-                        <i className="align-middle ri-time-line"></i>{" "}
-                        <span className="align-middle text-[0.6rem] md:text-[0.7rem]">
-                          {formatDistanceToNow(new Date(message.createdAt), {
-                            addSuffix: true,
-                          })}
-                        </span>
-                      </p>
+                      <div className="flex items-center justify-end gap-2 mt-1">
+                        <p
+                          className={`text-xs ${
+                            isOwnMessage
+                              ? "text-primary-foreground/50"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          <i className="align-middle ri-time-line"></i>{" "}
+                          <span className="align-middle text-[0.6rem] md:text-[0.7rem]">
+                            {formatDistanceToNow(new Date(message.createdAt), {
+                              addSuffix: true,
+                            })}
+                          </span>
+                        </p>
+                      </div>
                     </div>
                     {isOwnMessage && (
                       <div
@@ -171,6 +301,7 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
                               className="text-destructive focus:text-destructive cursor-pointer"
                               onClick={() => handleDeleteMessage(message._id)}
                             >
+                              <IconTrash className="w-4 h-4 mr-2" />
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -193,6 +324,13 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
           })
         )}
       </div>
+
+      {/* Typing indicator */}
+      {isTyping && (
+        <div className="mt-4 text-sm text-muted-foreground">
+          {getTypingText()}
+        </div>
+      )}
 
       <div ref={messagesEndRef} />
     </div>
