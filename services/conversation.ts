@@ -85,3 +85,9 @@ export const deleteParticipantConversation = async (
     { data: payload }
   );
 };
+
+export const LeaveConversation = async (
+  conversationId: string
+): Promise<any> => {
+  return await axiosClient.post<any>(`/conversation/${conversationId}/leave`);
+};

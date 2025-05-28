@@ -10,9 +10,13 @@ import { IconUser } from "@/components/icons/user";
 import { IconTrash } from "@/components/icons/trash";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/contexts/UserContext";
-import { deleteParticipantConversation } from "@/services/conversation";
+import {
+  deleteParticipantConversation,
+  LeaveConversation,
+} from "@/services/conversation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface SidebarProps {
   conversation: Conversation;
@@ -23,6 +27,7 @@ interface SidebarProps {
 const Sidebar = ({ conversation, isOpen, onClose }: SidebarProps) => {
   const { user } = useUser();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const otherParticipant = conversation.participants.find(
     (p) => p.user._id !== user?.data?.id
@@ -59,9 +64,28 @@ const Sidebar = ({ conversation, isOpen, onClose }: SidebarProps) => {
     },
   });
 
+  const leaveGroupMutation = useMutation({
+    mutationFn: () => LeaveConversation(conversation._id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      router.push("/chat");
+      toast.success("Left group successfully");
+    },
+    onError: (error) => {
+      console.error("Error leaving group:", error);
+      toast.error("Failed to leave group");
+    },
+  });
+
   const handleRemoveMember = (participantId: string) => {
     if (window.confirm("Are you sure you want to remove this member?")) {
       removeMemberMutation.mutate(participantId);
+    }
+  };
+
+  const handleLeaveGroup = () => {
+    if (window.confirm("Are you sure you want to leave this group?")) {
+      leaveGroupMutation.mutate();
     }
   };
 
@@ -82,6 +106,16 @@ const Sidebar = ({ conversation, isOpen, onClose }: SidebarProps) => {
             <p className="text-muted-foreground">
               {conversation.type === "direct" ? "Direct Message" : "Group Chat"}
             </p>
+            {conversation.type === "group" && user?.data?.id && !isOwner && (
+              <Button
+                variant="destructive"
+                className="mt-4"
+                onClick={handleLeaveGroup}
+                disabled={leaveGroupMutation.isPending}
+              >
+                {leaveGroupMutation.isPending ? "Leaving..." : "Leave Group"}
+              </Button>
+            )}
           </div>
         </div>
 

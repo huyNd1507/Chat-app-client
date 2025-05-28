@@ -37,8 +37,6 @@ export default function ChatItem({ conversation }: ChatItemProps) {
   const [isTyping, setIsTyping] = useState(false);
   const [typingNames, setTypingNames] = useState<string[]>([]);
 
-  console.log("conversation", conversation);
-
   const isSelected = pathname === `/chat/${conversation._id}`;
 
   const deleteConversationMutation = useMutation({
@@ -78,8 +76,6 @@ export default function ChatItem({ conversation }: ChatItemProps) {
     (p) => p.user._id !== user?.data?.id
   );
 
-  console.log("otherParticipant", otherParticipant?.user._id);
-
   const name =
     conversation.type === "direct"
       ? otherParticipant?.user.username
@@ -104,8 +100,6 @@ export default function ChatItem({ conversation }: ChatItemProps) {
         addSuffix: true,
       })
     : "";
-
-  console.log("lastMessage", lastMessage);
 
   useEffect(() => {
     if (!socket) return;

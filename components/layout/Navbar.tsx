@@ -85,8 +85,6 @@ const NavBar = () => {
     };
   }, [socket, queryClient]);
 
-  console.log("conversationsData", conversationsData);
-
   const { data: contacts, isLoading: isContactsLoading } = useQuery({
     queryKey: ["contacts", debouncedSearch],
     queryFn: () => getContacts({ q: debouncedSearch }),

@@ -40,12 +40,9 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
   // Join conversation when component mounts
   useEffect(() => {
     if (!socket?.connected || !selectedConversation?._id) return;
-
-    console.log("Joining conversation:", selectedConversation._id);
     joinConversation(selectedConversation._id);
 
     return () => {
-      console.log("Leaving conversation:", selectedConversation._id);
       leaveConversation(selectedConversation._id);
     };
   }, [
@@ -176,7 +173,6 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
       message: any;
       conversationId: string;
     }) => {
-      console.log("New message received in ChatContent:", data);
       if (data.conversationId === selectedConversation._id) {
         // Scroll to bottom when new message arrives in current conversation
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

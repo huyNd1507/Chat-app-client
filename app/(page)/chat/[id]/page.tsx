@@ -32,8 +32,6 @@ const ConversationDetail = () => {
     }
   }, [conversation]);
 
-  console.log("conversation", conversation);
-
   return (
     <MainLayout>
       {conversation ? (

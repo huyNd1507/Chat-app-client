@@ -50,8 +50,6 @@ export default function CreateGroupDialog({
     (users: any) => users.id !== user?.data?.id
   );
 
-  console.log("filteredContacts", filteredContacts);
-
   const handleParticipantSelect = (userId: string) => {
     setSelectedParticipants((prev) =>
       prev.includes(userId)

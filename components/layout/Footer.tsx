@@ -54,6 +54,8 @@ const Footer = ({ selectedConversation }: FooterProps) => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("socket sendmessage: ", socket?.connected);
+    console.log("user data sendmessage: ", user?.data?.id);
     if (
       !message.trim() ||
       !selectedConversation ||
@@ -87,7 +89,7 @@ const Footer = ({ selectedConversation }: FooterProps) => {
                   ? {
                       ...conv,
                       lastMessage: {
-                        _id: Date.now().toString(), // Temporary ID
+                        _id: Date.now().toString(),
                         content: { text: message.trim() },
                         type: "text",
                         sender: user.data.id,
