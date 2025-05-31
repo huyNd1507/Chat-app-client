@@ -20,6 +20,11 @@ interface ReactionPayload {
   emoji: string;
 }
 
+interface MarkMultipleMessagesAsReadPayload {
+  messageIds: string[];
+  conversationId: string;
+}
+
 export const getMessages = async ({
   conversationId,
   page = 1,
@@ -50,6 +55,12 @@ export const deleteMessage = async (messageId: string) => {
 
 export const markMessageAsRead = async (messageId: string) => {
   return await axiosClient.put(`/messages/${messageId}/read`);
+};
+
+export const markMultipleMessagesAsRead = async (
+  payload: MarkMultipleMessagesAsReadPayload
+) => {
+  return await axiosClient.post("/messages/mark-multiple-read", payload);
 };
 
 export const addReaction = async (

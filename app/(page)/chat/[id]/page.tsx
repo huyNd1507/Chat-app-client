@@ -11,33 +11,47 @@ import { getConversationDetail } from "@/services/conversation";
 import { Conversation } from "@/types/conversation";
 import { useState, useEffect } from "react";
 
+const LoadingSpinner = () => {
+  return (
+    <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+      <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin"></div>
+    </div>
+  );
+};
+
 const ConversationDetail = () => {
   const params = useParams();
   const { id } = params;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  const {
-    data: conversation,
-    isLoading,
-    error,
-  } = useQuery<{ data: Conversation }>({
+  const { data: conversation, isLoading } = useQuery<{ data: Conversation }>({
     queryKey: ["conversation", id],
     queryFn: () => getConversationDetail(id as string),
     enabled: !!id,
   });
 
   useEffect(() => {
-    if (conversation) {
-      setIsSidebarOpen(true);
-    }
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
+      } else if (conversation) {
+        setIsSidebarOpen(true);
+      }
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, [conversation]);
 
   return (
     <MainLayout>
-      {conversation ? (
-        <div className="flex h-[calc(100vh)]">
+      {isLoading ? (
+        <LoadingSpinner />
+      ) : conversation ? (
+        <div className="flex h-[calc(100vh)] w-full">
           <div
-            className={`flex flex-col transition-all duration-300 ease-in-out ${
+            className={`flex flex-col w-full transition-all duration-300 ease-in-out ${
               isSidebarOpen ? "lg:w-[calc(100%-320px)]" : "w-full"
             }`}
           >
@@ -53,7 +67,7 @@ const ConversationDetail = () => {
             </div>
           </div>
           <div
-            className={`transition-all duration-300 ease-in-out ${
+            className={`fixed right-0 h-full transition-all duration-300 ease-in-out ${
               isSidebarOpen ? "w-[320px]" : "w-0"
             }`}
           >

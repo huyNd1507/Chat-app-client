@@ -38,15 +38,20 @@ const Header: React.FC<HeaderProps> = ({ conversation, onInfoClick }) => {
       ? "online"
       : "offline";
 
+  const handleBackClick = () => {
+    router.push("/");
+  };
+
   return (
-    <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+    <div className="flex items-center justify-between px-4 py-3 border-b border-border">
       <div className="flex items-center gap-3">
         <div className="lg:hidden">
           <button
-            onClick={() => router.back()}
-            className="left-4 top-4 z-10 p-2 text-muted-foreground hover:text-foreground transition-colors"
+            onClick={handleBackClick}
+            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-accent transition-colors"
+            aria-label="Back to conversations"
           >
-            <IconArrowLeft />
+            <IconArrowLeft className="w-5 h-5" />
           </button>
         </div>
         <div className="relative">
@@ -65,20 +70,30 @@ const Header: React.FC<HeaderProps> = ({ conversation, onInfoClick }) => {
           <p className="text-muted-foreground text-sm">{status}</p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <button className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+      <div className="flex items-center gap-1">
+        <button
+          title="Call"
+          className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
           <IconTelephone />
         </button>
-        <button className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+        <button
+          title="Video Call"
+          className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
           <IconVideoCamera />
         </button>
         <button
+          title="Info"
           onClick={onInfoClick}
           className="p-2 text-muted-foreground hover:text-foreground transition-colors"
         >
           <IconInfo />
         </button>
-        <button className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+        <button
+          title="More"
+          className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
           <IconEllipsis />
         </button>
       </div>

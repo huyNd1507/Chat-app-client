@@ -91,3 +91,13 @@ export const LeaveConversation = async (
 ): Promise<any> => {
   return await axiosClient.post<any>(`/conversation/${conversationId}/leave`);
 };
+
+export const AddParticipantConversation = async (
+  conversationId: string,
+  payload: any
+): Promise<any> => {
+  return await axiosClient.post<any>(
+    `/conversation/${conversationId}/participants`,
+    payload
+  );
+};

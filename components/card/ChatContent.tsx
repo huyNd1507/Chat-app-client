@@ -8,7 +8,11 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { getMessages, deleteMessage } from "@/services/message";
+import {
+  getMessages,
+  deleteMessage,
+  markMultipleMessagesAsRead,
+} from "@/services/message";
 import { formatDistanceToNow } from "date-fns";
 import { useRef, useEffect, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
@@ -20,6 +24,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSocket } from "@/contexts/SocketContext";
 import { IconTrash } from "../icons/trash";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ChatContentProps {
   selectedConversation: Conversation;
@@ -64,6 +74,91 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
 
     setTypingUsersInConversation(typingUsersInThisConversation);
   }, [typingUsers, selectedConversation._id, user?.data?.id]);
+
+  // Listen for real-time message read status updates
+  useEffect(() => {
+    if (!socket || !selectedConversation) return;
+
+    const handleMessagesRead = (data: {
+      messageIds: string[];
+      userId: string;
+      conversationId: string;
+    }) => {
+      console.log("Received messages_read event:", data);
+      if (data.conversationId === selectedConversation._id) {
+        queryClient.setQueryData(
+          ["messages", selectedConversation._id],
+          (oldData: any) => {
+            if (!oldData) return oldData;
+
+            const newPages = oldData.pages.map((page: any) => {
+              const newMessages = page.data.messages.map((message: any) => {
+                if (
+                  data.messageIds.includes(message._id) &&
+                  !message.readBy.some(
+                    (readInfo: any) => readInfo.user._id === data.userId
+                  )
+                ) {
+                  const readerInfo = selectedConversation.participants.find(
+                    (p) => p.user._id === data.userId
+                  );
+                  console.log(
+                    `Message ${message._id} was read by user ${data.userId}`
+                  );
+                  console.log("Reader info:", readerInfo);
+
+                  return {
+                    ...message,
+                    readBy: [
+                      ...message.readBy,
+                      {
+                        user: {
+                          _id: data.userId,
+                          username: readerInfo?.user.username || "User",
+                          avatar: readerInfo?.user.avatar || "",
+                        },
+                        readAt: new Date().toISOString(),
+                        _id: `temp-${Date.now()}-${Math.random()}`,
+                      },
+                    ],
+                  };
+                }
+                return message;
+              });
+
+              return {
+                ...page,
+                data: {
+                  ...page.data,
+                  messages: newMessages,
+                },
+              };
+            });
+
+            return {
+              ...oldData,
+              pages: newPages,
+            };
+          }
+        );
+
+        queryClient.invalidateQueries({
+          queryKey: ["conversations"],
+        });
+      }
+    };
+
+    console.log(
+      "Setting up messages_read listener, socket connected:",
+      socket.connected
+    );
+
+    socket.on("messages_read", handleMessagesRead);
+
+    return () => {
+      socket.off("messages_read", handleMessagesRead);
+    };
+  }, [socket, selectedConversation, queryClient]);
 
   // Handle typing status
   useEffect(() => {
@@ -146,6 +241,28 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
     },
   });
 
+  const markMultipleAsReadMutation = useMutation({
+    mutationFn: (payload: { messageIds: string[]; conversationId: string }) =>
+      markMultipleMessagesAsRead(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["messages", selectedConversation._id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["conversations"],
+      });
+    },
+  });
+
+  const handleMarkMultipleAsRead = (messageIds: string[]) => {
+    if (messageIds.length === 0) return;
+
+    markMultipleAsReadMutation.mutate({
+      messageIds,
+      conversationId: selectedConversation._id,
+    });
+  };
+
   const handleDeleteMessage = (messageId: string) => {
     if (window.confirm("Are you sure you want to delete this message?")) {
       deleteMessageMutation.mutate(messageId);
@@ -174,8 +291,11 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
       conversationId: string;
     }) => {
       if (data.conversationId === selectedConversation._id) {
-        // Scroll to bottom when new message arrives in current conversation
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+
+        if (data.message.sender._id !== user?.data?.id) {
+          handleMarkMultipleAsRead([data.message._id]);
+        }
       }
     };
 
@@ -184,7 +304,27 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
     return () => {
       socket.off("message:new", handleNewMessage);
     };
-  }, [socket?.connected, selectedConversation?._id]);
+  }, [socket?.connected, selectedConversation?._id, user?.data?.id]);
+
+  // Mark messages as read when they are displayed
+  useEffect(() => {
+    if (!data?.pages || !user?.data?.id || !selectedConversation?._id) return;
+
+    const messagesToMarkAsRead = data.pages
+      .flatMap((page) => page.data.messages)
+      .filter((message) => {
+        const alreadyReadByCurrentUser = message.readBy?.some(
+          (readInfo: any) => readInfo.user._id === user.data.id
+        );
+
+        return !alreadyReadByCurrentUser;
+      })
+      .map((message) => message._id);
+
+    if (messagesToMarkAsRead.length > 0) {
+      handleMarkMultipleAsRead(messagesToMarkAsRead);
+    }
+  }, [data?.pages, user?.data?.id, selectedConversation?._id]);
 
   const getTypingText = () => {
     if (typingNames.length === 1) {
@@ -260,7 +400,7 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
                     <div
                       className={`relative px-3 text-[0.8rem] md:text-[0.9rem] py-1 rounded-lg ${
                         isOwnMessage
-                          ? "bg-primary text-primary-foreground ltr:rounded-br-none rtl:rounded-bl-none"
+                          ? "bg-blue-500 text-white ltr:rounded-br-none rtl:rounded-bl-none"
                           : "bg-muted text-foreground ltr:rounded-bl-none rtl:rounded-br-none"
                       }`}
                     >
@@ -269,7 +409,7 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
                         <p
                           className={`text-xs ${
                             isOwnMessage
-                              ? "text-primary-foreground/50"
+                              ? "text-white/50"
                               : "text-muted-foreground"
                           }`}
                         >
@@ -279,6 +419,76 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
                               addSuffix: true,
                             })}
                           </span>
+                          {message.readBy && message.readBy.length > 0 && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    className="ml-2 text-[0.6rem] md:text-[0.7rem] cursor-pointer"
+                                    aria-label="Seen by"
+                                  >
+                                    {message.readBy.some(
+                                      (readInfo: any) =>
+                                        readInfo.user._id !== message.sender._id
+                                    )
+                                      ? "✓✓"
+                                      : "✓"}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  align="center"
+                                  className="bg-black/90 text-white border-none p-2 max-w-[220px] z-[100]"
+                                >
+                                  <ul className="space-y-1.5">
+                                    {(() => {
+                                      // Sử dụng Map để loại bỏ trùng lặp dựa trên user._id
+                                      const uniqueReadByMap = new Map();
+
+                                      message.readBy.forEach(
+                                        (readInfo: any) => {
+                                          if (
+                                            !uniqueReadByMap.has(
+                                              readInfo.user._id
+                                            )
+                                          ) {
+                                            uniqueReadByMap.set(
+                                              readInfo.user._id,
+                                              readInfo
+                                            );
+                                          }
+                                        }
+                                      );
+
+                                      // Chuyển Map thành mảng để render
+                                      return Array.from(
+                                        uniqueReadByMap.values()
+                                      ).map((readInfo: any) => (
+                                        <li
+                                          key={readInfo._id}
+                                          className="flex items-center justify-between gap-3"
+                                        >
+                                          <span className="text-xs font-medium">
+                                            {readInfo.user.username}
+                                            {readInfo.user._id ===
+                                              message.sender._id && " (sender)"}
+                                          </span>
+                                          <span className="text-[10px] text-gray-300">
+                                            {formatDistanceToNow(
+                                              new Date(readInfo.readAt),
+                                              {
+                                                addSuffix: true,
+                                              }
+                                            )}
+                                          </span>
+                                        </li>
+                                      ));
+                                    })()}
+                                  </ul>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -307,7 +517,7 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
                   </div>
                   {selectedConversation.type !== "direct" && (
                     <div
-                      className={`font-medium text-foreground text-14 hidden lg:block ${
+                      className={`font-medium text-foreground text-[0.8rem] hidden lg:block ${
                         isOwnMessage ? "text-right" : ""
                       }`}
                     >
@@ -321,7 +531,6 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
         )}
       </div>
 
-      {/* Typing indicator */}
       {isTyping && (
         <div className="mt-4 text-sm text-muted-foreground">
           {getTypingText()}
