@@ -85,3 +85,19 @@ export const deleteParticipantConversation = async (
     { data: payload }
   );
 };
+
+export const LeaveConversation = async (
+  conversationId: string
+): Promise<any> => {
+  return await axiosClient.post<any>(`/conversation/${conversationId}/leave`);
+};
+
+export const AddParticipantConversation = async (
+  conversationId: string,
+  payload: any
+): Promise<any> => {
+  return await axiosClient.post<any>(
+    `/conversation/${conversationId}/participants`,
+    payload
+  );
+};

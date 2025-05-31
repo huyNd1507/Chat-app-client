@@ -1,12 +1,9 @@
 "use client";
 
-import Header from "@/components/layout/Header";
-import SideBar from "@/components/layout/Sidebar";
-import Footer from "@/components/layout/Footer";
-import ChatContent from "@/components/card/ChatContent";
 import { useState, useEffect } from "react";
 import { Conversation } from "@/types/conversation";
 import NavBar from "./Navbar";
+import { usePathname } from "next/navigation";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -15,6 +12,20 @@ interface MainLayoutProps {
 
 const MainLayout = ({ children, selectedConversation }: MainLayoutProps) => {
   const [isChatVisible, setIsChatVisible] = useState(false);
+  const pathname = usePathname();
+
+  // Detect if we're in a chat route or any other non-main route (like profile)
+  useEffect(() => {
+    if (pathname) {
+      // Check if we're in a chat route or any other route that's not the main page
+      const isDetailRoute =
+        pathname.includes("/chat/") ||
+        pathname.includes("/profile") ||
+        pathname.includes("/contact");
+
+      setIsChatVisible(isDetailRoute);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     if (selectedConversation) {
@@ -22,16 +33,15 @@ const MainLayout = ({ children, selectedConversation }: MainLayoutProps) => {
     }
   }, [selectedConversation]);
 
-  const handleBack = () => {
-    setIsChatVisible(false);
-  };
-
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <div className="lg:w-[390px] tab-content bg-background border-r border-border">
+      <div
+        className={`w-full lg:w-[390px] bg-background border-r border-border transition-transform duration-300 ease-in-out ${
+          isChatVisible ? "-translate-x-full lg:translate-x-0" : "translate-x-0"
+        }`}
+      >
         <NavBar />
       </div>
-
       <div
         className={`fixed lg:relative w-full h-full overflow-hidden bg-background transition-transform duration-300 ease-in-out ${
           isChatVisible ? "translate-x-0" : "translate-x-full lg:translate-x-0"

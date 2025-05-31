@@ -10,9 +10,16 @@ import { IconUser } from "@/components/icons/user";
 import { IconTrash } from "@/components/icons/trash";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/contexts/UserContext";
-import { deleteParticipantConversation } from "@/services/conversation";
+import {
+  deleteParticipantConversation,
+  LeaveConversation,
+} from "@/services/conversation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import AddMembersDialog from "../dialog/AddMembersDialog";
+import { IconX } from "@/components/icons/x";
 
 interface SidebarProps {
   conversation: Conversation;
@@ -23,6 +30,8 @@ interface SidebarProps {
 const Sidebar = ({ conversation, isOpen, onClose }: SidebarProps) => {
   const { user } = useUser();
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const [isAddMembersOpen, setIsAddMembersOpen] = useState(false);
 
   const otherParticipant = conversation.participants.find(
     (p) => p.user._id !== user?.data?.id
@@ -59,9 +68,28 @@ const Sidebar = ({ conversation, isOpen, onClose }: SidebarProps) => {
     },
   });
 
+  const leaveGroupMutation = useMutation({
+    mutationFn: () => LeaveConversation(conversation._id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      router.push("/chat");
+      toast.success("Left group successfully");
+    },
+    onError: (error) => {
+      console.error("Error leaving group:", error);
+      toast.error("Failed to leave group");
+    },
+  });
+
   const handleRemoveMember = (participantId: string) => {
     if (window.confirm("Are you sure you want to remove this member?")) {
       removeMemberMutation.mutate(participantId);
+    }
+  };
+
+  const handleLeaveGroup = () => {
+    if (window.confirm("Are you sure you want to leave this group?")) {
+      leaveGroupMutation.mutate();
     }
   };
 
@@ -72,6 +100,14 @@ const Sidebar = ({ conversation, isOpen, onClose }: SidebarProps) => {
       }`}
     >
       <div className="flex flex-col h-full">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 rounded-full hover:bg-accent transition-colors lg:hidden"
+          aria-label="Close sidebar"
+        >
+          <IconX className="w-5 h-5" />
+        </button>
+
         <div className="p-6 border-b border-border">
           <div className="flex flex-col items-center">
             <Avatar className="w-20 h-20 mb-4 border-2 border-primary">
@@ -82,6 +118,16 @@ const Sidebar = ({ conversation, isOpen, onClose }: SidebarProps) => {
             <p className="text-muted-foreground">
               {conversation.type === "direct" ? "Direct Message" : "Group Chat"}
             </p>
+            {conversation.type === "group" && user?.data?.id && !isOwner && (
+              <Button
+                variant="destructive"
+                className="mt-4"
+                onClick={handleLeaveGroup}
+                disabled={leaveGroupMutation.isPending}
+              >
+                {leaveGroupMutation.isPending ? "Leaving..." : "Leave Group"}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -113,7 +159,22 @@ const Sidebar = ({ conversation, isOpen, onClose }: SidebarProps) => {
                   </div>
                   {conversation.type === "group" && (
                     <div>
-                      <h4 className="text-sm font-medium mb-2">Members</h4>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-medium">Members</h4>
+                        {conversation.admins?.some(
+                          (admin) =>
+                            admin.user === user?.data?.id &&
+                            admin.role === "owner"
+                        ) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsAddMembersOpen(true)}
+                          >
+                            Add Members
+                          </Button>
+                        )}
+                      </div>
                       <div className="space-y-2">
                         {conversation.participants.map((participant) => {
                           const isParticipantOwner = conversation.admins?.some(
@@ -170,7 +231,6 @@ const Sidebar = ({ conversation, isOpen, onClose }: SidebarProps) => {
 
               <TabsContent value="media" className="mt-4">
                 <div className="grid grid-cols-2 gap-2">
-                  {/* Media items will be added here */}
                   <p className="text-sm text-muted-foreground">
                     No media shared yet
                   </p>
@@ -179,7 +239,6 @@ const Sidebar = ({ conversation, isOpen, onClose }: SidebarProps) => {
 
               <TabsContent value="files" className="mt-4">
                 <div className="space-y-2">
-                  {/* File items will be added here */}
                   <p className="text-sm text-muted-foreground">
                     No files shared yet
                   </p>
@@ -188,7 +247,6 @@ const Sidebar = ({ conversation, isOpen, onClose }: SidebarProps) => {
 
               <TabsContent value="links" className="mt-4">
                 <div className="space-y-2">
-                  {/* Link items will be added here */}
                   <p className="text-sm text-muted-foreground">
                     No links shared yet
                   </p>
@@ -198,6 +256,14 @@ const Sidebar = ({ conversation, isOpen, onClose }: SidebarProps) => {
           </div>
         </div>
       </div>
+
+      <AddMembersDialog
+        isOpen={isAddMembersOpen}
+        onClose={() => setIsAddMembersOpen(false)}
+        conversationId={conversation._id}
+        existingMembers={conversation.participants.map((p) => p.user._id)}
+        isOwner={!!isOwner}
+      />
     </div>
   );
 };

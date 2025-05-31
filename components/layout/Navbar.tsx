@@ -3,7 +3,6 @@
 import { getConversations } from "@/services/conversation";
 import { Conversation } from "@/types/conversation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-// import { ChatItem } from "../card/ChatItem";
 import { IconSearch } from "../icons/search";
 import { IconUsergroupAdd } from "../icons/usergroup-add";
 import { Separator } from "@/components/ui/separator";
@@ -85,8 +84,6 @@ const NavBar = () => {
     };
   }, [socket, queryClient]);
 
-  console.log("conversationsData", conversationsData);
-
   const { data: contacts, isLoading: isContactsLoading } = useQuery({
     queryKey: ["contacts", debouncedSearch],
     queryFn: () => getContacts({ q: debouncedSearch }),
@@ -164,7 +161,10 @@ const NavBar = () => {
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="p-2 hover:bg-accent rounded-full transition-colors">
+              <button
+                title="setting"
+                className="p-2 hover:bg-accent rounded-full transition-colors"
+              >
                 <IconSettings className="w-5 h-5" />
               </button>
             </DropdownMenuTrigger>

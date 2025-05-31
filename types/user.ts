@@ -22,13 +22,12 @@ interface UserPrivacy {
 export interface User {
   id: string;
   username: string;
-  email: string;
   fullname: string;
+  email: string;
   avatar: string;
   coverPhoto: string;
-  status: string;
+  status: "online" | "offline" | "away";
   lastSeen: string;
-  contacts: any[];
   privacy: UserPrivacy;
   settings: UserSettings;
   socialLinks: any[];

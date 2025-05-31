@@ -198,12 +198,43 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     // Message read status events
     socketRef.current.on(
       "message:read",
-      (data: { messageId: string; userId: string; readAt: Date }) => {
+      (data: { messageId: string; userId: string; readAt: Date; conversationId: string }) => {
         console.log("Message read status updated:", data);
 
-        // Update query cache for all conversations
-        queryClient.setQueriesData(
-          { queryKey: ["messages"] },
+        // Update messages in the current state
+        setMessages((prev) => {
+          const newMap = new Map(prev);
+          const conversationMessages = newMap.get(data.conversationId) || [];
+          
+          const updatedMessages = conversationMessages.map((msg) => {
+            if (msg._id === data.messageId) {
+              // Check if user already read the message
+              const alreadyRead = msg.readBy.some(
+                (read) => read.user === data.userId
+              );
+              if (alreadyRead) return msg;
+
+              return {
+                ...msg,
+                readBy: [
+                  ...msg.readBy,
+                  {
+                    user: data.userId,
+                    readAt: data.readAt,
+                  },
+                ],
+              };
+            }
+            return msg;
+          });
+          
+          newMap.set(data.conversationId, updatedMessages);
+          return newMap;
+        });
+
+        // Update query cache for specific conversation
+        queryClient.setQueryData(
+          ["messages", data.conversationId],
           (oldData: any) => {
             if (!oldData) return oldData;
             return {
@@ -238,6 +269,32 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
             };
           }
         );
+
+        // Update conversations list to reflect read status
+        queryClient.setQueryData(["conversations"], (oldData: any) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            data: {
+              ...oldData.data,
+              conversations: oldData.data.conversations.map((conv: any) => {
+                if (conv._id === data.conversationId && conv.lastMessage?._id === data.messageId) {
+                  return {
+                    ...conv,
+                    lastMessage: {
+                      ...conv.lastMessage,
+                      readBy: [...(conv.lastMessage.readBy || []), {
+                        user: data.userId,
+                        readAt: data.readAt
+                      }]
+                    }
+                  };
+                }
+                return conv;
+              }),
+            },
+          };
+        });
       }
     );
 
@@ -296,7 +353,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const markMessageAsRead = useCallback(
     (data: { conversationId: string; messageId: string }) => {
-      socketRef.current?.emit("message:read", data);
+      if (!socketRef.current?.connected) {
+        console.error("Socket is not connected, can't mark message as read");
+        return;
+      }
+      console.log("Marking message as read:", data);
+      socketRef.current.emit("message:read", data);
     },
     []
   );

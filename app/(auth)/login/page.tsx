@@ -8,7 +8,7 @@ import AuthLayout from "@/components/layout/AuthLayout";
 import Link from "next/link";
 import { useState } from "react";
 import { login } from "@/services/auth";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 
 interface LoginResponse {
@@ -26,6 +26,7 @@ interface LoginResponse {
 const LoginPage = () => {
   const router = useRouter();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -33,11 +34,19 @@ const LoginPage = () => {
 
   const loginMutation = useMutation<LoginResponse, Error, typeof formData>({
     mutationFn: login,
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Login successful",
       });
-      router.push("/");
+
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+
+      setTimeout(() => {
+        router.push("/");
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 100);
+      }, 500);
     },
     onError: (error: any) => {
       toast({

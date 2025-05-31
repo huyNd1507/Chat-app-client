@@ -9,13 +9,13 @@ import { Button } from "@/components/ui/button";
 import { useState, useRef } from "react";
 import { updateProfile, getMe } from "@/services/auth";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { IconEdit } from "@/components/icons/edit";
-import { IconCheck } from "@/components/icons/check";
 import { IconX } from "@/components/icons/x";
 import { IconCopy } from "@/components/icons/copy";
 import { toast } from "sonner";
 import { IconCamera } from "@/components/icons/camera";
 import { uploadFile } from "@/services/upload";
+import ProfileHeader from "@/components/layout/ProfileHeader";
+import { useToast } from "@/components/ui/use-toast";
 
 interface UserSettings {
   notifications: {
@@ -68,6 +68,7 @@ interface SocialLink {
 const ProfilePage = () => {
   const { user, setUser } = useUser();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
@@ -77,25 +78,34 @@ const ProfilePage = () => {
   });
   const [tempAvatar, setTempAvatar] = useState<string | null>(null);
 
-  console.log("avatar:", user?.data?.avatar);
   const updateProfileMutation = useMutation({
     mutationFn: (data: any) => updateProfile(user?.data?.id || "", data),
     onSuccess: async () => {
-      // Fetch latest user data after successful update
       try {
         const response = await getMe();
         setUser(response.data);
         queryClient.invalidateQueries({ queryKey: ["user"] });
         setIsEditing(false);
-        toast.success("Profile updated successfully");
-      } catch (error) {
-        console.error("Error fetching updated profile:", error);
-        toast.error("Failed to refresh profile data");
+
+        toast({
+          title: "Profile updated successfully",
+        });
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error fetching updated profile",
+          description:
+            error.response?.data?.message || "Failed to refresh profile data",
+        });
       }
     },
-    onError: (error) => {
-      console.error("Error updating profile:", error);
-      toast.error("Failed to update profile");
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Error fetching updated profile",
+        description:
+          error.response?.data?.message || "Failed to refresh profile data",
+      });
     },
   });
 
@@ -164,10 +174,14 @@ const ProfilePage = () => {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(
       () => {
-        toast.success("Link copied to clipboard");
+        toast({
+          title: "Link copied to clipboard",
+        });
       },
       () => {
-        toast.error("Failed to copy link");
+        toast({
+          title: "Failed to copy link",
+        });
       }
     );
   };
@@ -180,61 +194,57 @@ const ProfilePage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check file type
     if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
+      toast({
+        variant: "destructive",
+        title: "Please select an image file",
+      });
       return;
     }
 
-    // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("File size should be less than 5MB");
+      toast({
+        variant: "destructive",
+        title: "File size should be less than 5MB",
+      });
       return;
     }
 
     try {
-      // Upload file first
       const uploadResponse = await uploadFile(file);
       if (!uploadResponse.success || !uploadResponse.files[0]) {
         throw new Error("Upload failed");
       }
 
-      // Set temporary avatar for preview
       setTempAvatar(uploadResponse.files[0].webViewLink);
-      // Update formData with new avatar URL
       setFormData((prev) => ({
         ...prev,
         avatar: uploadResponse.files[0].webViewLink,
       }));
 
-      toast.success("Avatar uploaded successfully");
-    } catch (error) {
-      console.error("Error uploading avatar:", error);
-      toast.error("Failed to upload avatar");
+      toast({
+        title: "Avatar uploaded successfully",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Failed to upload avatar",
+        description: error.response?.data?.message || "Failed to upload avatar",
+      });
     }
   };
 
   return (
     <MainLayout>
-      <div>
+      <div className="h-full overflow-y-auto">
+        <ProfileHeader
+          title="My Profile"
+          isEditing={isEditing}
+          onEdit={handleEdit}
+          onSave={handleSave}
+          onCancel={handleCancel}
+        />
         <div className="p-6">
-          <div className="flex items-center justify-between">
-            <h4 className="mb-0 font-bold text-foreground">My Profile</h4>
-            {!isEditing ? (
-              <Button variant="ghost" size="icon" onClick={handleEdit}>
-                <IconEdit className="w-4 h-4" />
-              </Button>
-            ) : (
-              <div className="flex gap-2">
-                <Button variant="ghost" size="icon" onClick={handleSave}>
-                  <IconCheck className="w-4 h-4 text-green-500" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={handleCancel}>
-                  <IconX className="w-4 h-4 text-red-500" />
-                </Button>
-              </div>
-            )}
-          </div>
           <div className="relative w-[150px] h-[150px] mx-auto mt-6">
             <Avatar className="w-[150px] h-[150px] border-2 border-border">
               <AvatarImage
@@ -262,6 +272,8 @@ const ProfilePage = () => {
               ref={fileInputRef}
               className="hidden"
               accept="image/*"
+              placeholder=""
+              aria-label="Upload profile image"
               onChange={handleFileChange}
             />
           </div>

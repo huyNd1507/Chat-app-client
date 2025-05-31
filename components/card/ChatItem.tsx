@@ -1,28 +1,33 @@
 "use client";
 
-import MainLayout from "@/components/layout/MainLayout";
-import { IconSearch } from "@/components/icons/search";
-import { IconTrash } from "@/components/icons/trash";
-import { IconEllipsisVertical } from "@/components/icons/ellipsis-vertical";
-import { IconUser } from "@/components/icons/user";
-import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getConversations, deleteConversation } from "@/services/conversation";
 import { useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Conversation } from "@/types/conversation";
-import { useUser } from "@/contexts/UserContext";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+// UI Components
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useRouter, usePathname } from "next/navigation";
-import Link from "next/link";
+import { useToast } from "../ui/use-toast";
+
+// Icons
+import { IconTrash } from "@/components/icons/trash";
+import { IconEllipsisVertical } from "@/components/icons/ellipsis-vertical";
+import { IconUser } from "@/components/icons/user";
+
+// Services and Contexts
+import { deleteConversation } from "@/services/conversation";
+import { useUser } from "@/contexts/UserContext";
 import { useSocket } from "@/contexts/SocketContext";
-import { toast } from "sonner";
+
+// Types
+import { Conversation } from "@/types/conversation";
 
 interface ChatItemProps {
   conversation: Conversation;
@@ -31,25 +36,65 @@ interface ChatItemProps {
 export default function ChatItem({ conversation }: ChatItemProps) {
   const { user } = useUser();
   const router = useRouter();
+  const { toast } = useToast();
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const { socket, typingUsers, onlineUsers } = useSocket();
   const [isTyping, setIsTyping] = useState(false);
   const [typingNames, setTypingNames] = useState<string[]>([]);
 
-  console.log("conversation", conversation);
-
   const isSelected = pathname === `/chat/${conversation._id}`;
+  const userId = user?.data?.id;
 
+  // Find the other participant in direct conversations
+  const otherParticipant = conversation.participants.find(
+    (p) => p.user._id !== userId
+  );
+
+  // Conversation metadata helpers
+  const conversationInfo = {
+    title:
+      conversation.type === "direct"
+        ? otherParticipant?.user.username || "Unknown User"
+        : `# ${conversation.name || "Unnamed Group"}`,
+
+    avatar:
+      conversation.type === "direct"
+        ? otherParticipant?.user.avatar
+        : conversation.avatar,
+
+    status:
+      conversation.type === "direct"
+        ? otherParticipant?.user.status
+        : conversation.metadata.onlineCount > 0
+        ? "online"
+        : "offline",
+
+    time: conversation.lastMessage
+      ? formatDistanceToNow(new Date(conversation.lastMessage.createdAt), {
+          addSuffix: true,
+        })
+      : "",
+  };
+
+  // Delete conversation mutation
   const deleteConversationMutation = useMutation({
     mutationFn: (conversationId: string) => deleteConversation(conversationId),
-    onMutate: async (conversationId) => {},
-    onError: (err, newTodo, context) => {},
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Xóa cuộc trò chuyện thất bại",
+        description:
+          error.response?.data?.message ||
+          "Có lỗi xảy ra khi xóa cuộc trò chuyện",
+      });
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
     },
   });
 
+  // Event handlers
   const handleDeleteConversation = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (window.confirm("Are you sure you want to delete this conversation?")) {
@@ -58,11 +103,12 @@ export default function ChatItem({ conversation }: ChatItemProps) {
         if (isSelected) {
           router.push("/");
         }
-        queryClient.invalidateQueries({ queryKey: ["conversations"] });
-        toast.success("Conversation deleted successfully");
-      } catch (error) {
+        toast({
+          variant: "default",
+          title: "Xóa cuộc trò chuyện thành công",
+        });
+      } catch (error: any) {
         console.error("Error deleting conversation:", error);
-        toast.error("Failed to delete conversation");
       }
     }
   };
@@ -74,45 +120,12 @@ export default function ChatItem({ conversation }: ChatItemProps) {
     }
   };
 
-  const otherParticipant = conversation.participants.find(
-    (p) => p.user._id !== user?.data?.id
-  );
-
-  console.log("otherParticipant", otherParticipant?.user._id);
-
-  const name =
-    conversation.type === "direct"
-      ? otherParticipant?.user.username
-      : conversation.name || "Unnamed Group";
-
-  const avatar =
-    conversation.type === "direct"
-      ? otherParticipant?.user.avatar
-      : conversation.avatar;
-
-  const status =
-    conversation.type === "direct"
-      ? otherParticipant?.user.status
-      : conversation.metadata.onlineCount > 0
-      ? "online"
-      : "offline";
-
-  const lastMessage =
-    conversation.lastMessage?.content?.text || "No messages yet";
-  const time = conversation.lastMessage
-    ? formatDistanceToNow(new Date(conversation.lastMessage.createdAt), {
-        addSuffix: true,
-      })
-    : "";
-
-  console.log("lastMessage", lastMessage);
-
+  // Socket event listener for conversation updates
   useEffect(() => {
     if (!socket) return;
 
     const handleConversationUpdate = (data: { conversation: Conversation }) => {
       if (data.conversation._id === conversation._id) {
-        // Cập nhật conversation trong cache
         queryClient.setQueryData(
           ["conversations"],
           (
@@ -140,16 +153,16 @@ export default function ChatItem({ conversation }: ChatItemProps) {
     };
   }, [socket, conversation._id, queryClient]);
 
+  // Typing indicator effect
   useEffect(() => {
     const typingUsersInConversation = typingUsers.filter(
       (typingUser) =>
         typingUser.conversationId === conversation._id &&
-        typingUser.userId !== user?.data?.id
+        typingUser.userId !== userId
     );
 
     setIsTyping(typingUsersInConversation.length > 0);
 
-    // Get names of typing users
     const names = typingUsersInConversation.map((typingUser) => {
       const participant = conversation.participants.find(
         (p) => p.user._id === typingUser.userId
@@ -158,39 +171,10 @@ export default function ChatItem({ conversation }: ChatItemProps) {
     });
 
     setTypingNames(names);
-  }, [
-    typingUsers,
-    conversation._id,
-    user?.data?.id,
-    conversation.participants,
-  ]);
+  }, [typingUsers, conversation._id, userId, conversation.participants]);
 
-  const handleClick = () => {
-    router.push(`/chat/${conversation._id}`);
-  };
-
-  const getTitle = () => {
-    if (conversation.type === "direct") {
-      return otherParticipant?.user.username || "Unknown User";
-    }
-    return `# ${conversation.name}`;
-  };
-
-  const getAvatar = () => {
-    if (conversation.type === "direct") {
-      return otherParticipant?.user.avatar;
-    }
-    return conversation.avatar;
-  };
-
-  const getStatus = () => {
-    if (conversation.type === "direct") {
-      return otherParticipant?.user.status;
-    }
-    return conversation.metadata.onlineCount > 0 ? "online" : "offline";
-  };
-
-  const getLastMessage = () => {
+  // Get the last message or typing indicator text
+  const getLastMessageText = () => {
     if (isTyping) {
       if (typingNames.length === 1) {
         return `${typingNames[0]} is typing...`;
@@ -203,16 +187,19 @@ export default function ChatItem({ conversation }: ChatItemProps) {
       }
       return "Someone is typing...";
     }
+
     if (!conversation.lastMessage) {
       return "No messages yet";
     }
-    if (conversation.lastMessage.type === "text") {
-      return conversation.lastMessage.content.text;
+
+    switch (conversation.lastMessage.type) {
+      case "text":
+        return conversation.lastMessage.content.text;
+      case "file":
+        return "Sent a file";
+      default:
+        return "Sent a message";
     }
-    if (conversation.lastMessage.type === "file") {
-      return "Sent a file";
-    }
-    return "Sent a message";
   };
 
   return (
@@ -223,36 +210,43 @@ export default function ChatItem({ conversation }: ChatItemProps) {
         }`}
       >
         <div className="flex gap-3">
+          {/* Avatar with online status indicator */}
           <div className="relative self-center">
             <Avatar className="border-[1px] border-blue-200">
-              <AvatarImage src={getAvatar()} />
+              <AvatarImage src={conversationInfo.avatar} />
               <AvatarFallback>
-                {getTitle().charAt(0).toUpperCase()}
+                {conversationInfo.title.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            {getStatus() === "online" && (
+            {conversationInfo.status === "online" && (
               <span className="absolute w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full top-7 right-0"></span>
             )}
           </div>
+
+          {/* Conversation details */}
           <div className="flex-grow overflow-hidden">
             <h5 className="mb-1 text-base truncate font-semibold text-foreground">
-              {getTitle()}
+              {conversationInfo.title}
             </h5>
             <p
               className={`text-sm truncate ${
                 isTyping ? "text-primary" : "text-muted-foreground"
               }`}
             >
-              {getLastMessage()}
+              {getLastMessageText()}
             </p>
           </div>
+
+          {/* Time and actions dropdown */}
           <div className="flex items-center gap-2">
             <div className="text-muted-foreground text-right text-xs">
-              <p className="text-nowrap">{time}</p>
+              <p className="text-nowrap">{conversationInfo.time}</p>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
+                  type="button"
+                  aria-label="More options"
                   className="p-1 hover:bg-accent rounded-full"
                   onClick={(e) => e.stopPropagation()}
                 >
