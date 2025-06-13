@@ -30,9 +30,169 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import Image from "next/image";
+import Link from "next/link";
 
 interface ChatContentProps {
   selectedConversation: Conversation;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  const value = bytes / Math.pow(1024, i);
+  return `${value.toFixed(2)} ${sizes[i]}`;
+}
+
+function renderFileMessage(media: any, isOwnMessage: any) {
+  if (!media || !media.mimeType || !media.url) return null;
+
+  const mimeType = media.mimeType;
+
+  switch (true) {
+    case mimeType.startsWith("image/"):
+      return (
+        <>
+          <Link
+            href={media.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            download
+            className={`${
+              isOwnMessage ? "text-white" : "text-black"
+            } hover:underline`}
+          >
+            <Image
+              src={media.url}
+              alt={media.caption || "Image"}
+              width={300}
+              height={300}
+              className="rounded-md"
+            />
+          </Link>
+          <span className="text-[10px]">{formatFileSize(media?.size)}</span>
+        </>
+      );
+
+    case mimeType.startsWith("video/"):
+      return (
+        <div className="flex flex-col items-start gap-2 w-full max-w-md bg-muted px-3 py-2 rounded-lg">
+          <video
+            controls
+            preload="metadata"
+            src={media?.url}
+            className="w-full rounded-md"
+          >
+            Your browser does not support the video tag.
+          </video>
+          <div className="flex justify-between items-center w-full text-xs text-muted-foreground">
+            <span className="truncate max-w-[70%]">
+              🎥 {media?.caption || "Video file"}
+            </span>
+            <span>{formatFileSize(media?.size)}</span>
+          </div>
+        </div>
+      );
+
+    case mimeType.startsWith("audio/"):
+      return (
+        <div className="flex flex-col items-start gap-2 w-full max-w-full bg-muted px-3 py-2 rounded-lg">
+          <audio
+            controls
+            preload="none"
+            src={media.url}
+            className="w-full rounded-md"
+          />
+          <div className="flex justify-between items-center w-full text-xs text-muted-foreground">
+            <span className="truncate max-w-[70%]">
+              🎵 {media.caption || "Audio file"}
+            </span>
+            <span>{formatFileSize(media?.size)}</span>
+          </div>
+        </div>
+      );
+
+    case mimeType === "application/pdf":
+      return (
+        <div className="flex items-start  gap-2">
+          <span>📄</span>
+          <div className="flex flex-col">
+            <a
+              href={media.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              download
+              className={`${
+                isOwnMessage ? "text-white" : "text-black"
+              } hover:underline`}
+            >
+              {media.caption || "Download PDF"}
+            </a>
+            <span className="text-[10px]">{formatFileSize(media?.size)}</span>
+          </div>
+        </div>
+      );
+
+    case mimeType ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+      return (
+        <div className="flex items-start  gap-2">
+          <span>📝 </span>
+          <div className="flex flex-col">
+            <a
+              href={media.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              download
+              className={`${
+                isOwnMessage ? "text-white" : "text-black"
+              } hover:underline`}
+            >
+              {media.caption || "Download Word file"}
+            </a>
+            <span className="text-[10px]">{formatFileSize(media?.size)}</span>
+          </div>
+        </div>
+      );
+
+    case mimeType === "text/csv":
+    case mimeType === "application/vnd.ms-excel":
+    case mimeType ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+      return (
+        <div className="flex items-start  gap-2">
+          <span>📊 </span>
+          <div className="flex flex-col">
+            <a
+              href={media.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              download
+              className={`${
+                isOwnMessage ? "text-white" : "text-black"
+              } hover:underline`}
+            >
+              {media.caption || "Download Spreadsheet"}
+            </a>
+            <span className="text-[10px]">{formatFileSize(media?.size)}</span>
+          </div>
+        </div>
+      );
+
+    default:
+      return (
+        <a
+          href={media.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          download
+          className="text-blue-500 underline"
+        >
+          📎 {media.caption || "Download File"}
+        </a>
+      );
+  }
 }
 
 const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
@@ -404,7 +564,16 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
                           : "bg-muted text-foreground ltr:rounded-bl-none rtl:rounded-br-none"
                       }`}
                     >
-                      <p className="mb-0">{message.content.text}</p>
+                      {message.type === "file" && message.content.media ? (
+                        renderFileMessage(message.content.media, isOwnMessage)
+                      ) : (
+                        <p className="mb-0">
+                          {message.content.text ||
+                            message.content.media?.caption ||
+                            message.content.media?.url}
+                        </p>
+                      )}
+
                       <div className="flex items-center justify-end gap-2 mt-1">
                         <p
                           className={`text-xs ${

@@ -14,6 +14,7 @@ import { useUser } from "@/contexts/UserContext";
 import { IconTrash } from "../icons/trash";
 import Image from "next/image";
 import { IconImage } from "../icons/image";
+import { Spinner } from "../ui/spinner";
 
 interface FooterProps {
   selectedConversation: Conversation | null;
@@ -22,6 +23,7 @@ interface FooterProps {
 const Footer = ({ selectedConversation }: FooterProps) => {
   const [message, setMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { sendMessage, startTyping, stopTyping, socket } = useSocket();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -103,9 +105,8 @@ const Footer = ({ selectedConversation }: FooterProps) => {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedConversation || !socket?.connected || !user?.data?.id) return;
-
+    setIsSending(true);
     try {
-      // Stop typing when sending message
       stopTyping(selectedConversation._id);
 
       if (selectedFiles.length > 0) {
@@ -119,26 +120,29 @@ const Footer = ({ selectedConversation }: FooterProps) => {
           throw new Error("Some files failed to upload");
         }
 
-        // Send messages for each file
-        const sendPromises = uploadResults.map((result, index) => {
+        const fileSendPromises = uploadResults.map((result, index) => {
           const file = selectedFiles[index];
-          return sendMessage({
-            conversationId: selectedConversation._id,
-            content: {
-              media: {
-                url: result.files[0].webViewLink,
-                mimeType: file.type,
-                size: file.size,
-                caption: file.name,
+          return new Promise<void>((resolve, reject) => {
+            sendMessage({
+              conversationId: selectedConversation._id,
+              content: {
+                media: {
+                  // url: result.files[0].webViewLink,
+                  url: result.files[0].webContentLink,
+                  mimeType: file.type,
+                  size: file.size,
+                  caption: file.name,
+                },
               },
-            },
-            type: "file",
+              type: "file",
+            });
+            resolve();
           });
         });
+        console.log("fileSendPromises:", fileSendPromises);
 
-        await Promise.all(sendPromises);
+        await Promise.all(fileSendPromises);
 
-        // Update conversation cache
         queryClient.setQueryData(
           ["conversations"],
           (
@@ -176,6 +180,7 @@ const Footer = ({ selectedConversation }: FooterProps) => {
         );
 
         setSelectedFiles([]);
+
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
@@ -223,6 +228,8 @@ const Footer = ({ selectedConversation }: FooterProps) => {
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Failed to send message");
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -348,7 +355,7 @@ const Footer = ({ selectedConversation }: FooterProps) => {
               }
               aria-label="Send message"
             >
-              <IconSend />
+              {isSending ? <Spinner /> : <IconSend />}
             </button>
           </div>
         </div>

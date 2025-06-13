@@ -198,14 +198,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     // Message read status events
     socketRef.current.on(
       "message:read",
-      (data: { messageId: string; userId: string; readAt: Date; conversationId: string }) => {
+      (data: {
+        messageId: string;
+        userId: string;
+        readAt: Date;
+        conversationId: string;
+      }) => {
         console.log("Message read status updated:", data);
 
         // Update messages in the current state
         setMessages((prev) => {
           const newMap = new Map(prev);
           const conversationMessages = newMap.get(data.conversationId) || [];
-          
+
           const updatedMessages = conversationMessages.map((msg) => {
             if (msg._id === data.messageId) {
               // Check if user already read the message
@@ -227,7 +232,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
             }
             return msg;
           });
-          
+
           newMap.set(data.conversationId, updatedMessages);
           return newMap;
         });
@@ -278,16 +283,22 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
             data: {
               ...oldData.data,
               conversations: oldData.data.conversations.map((conv: any) => {
-                if (conv._id === data.conversationId && conv.lastMessage?._id === data.messageId) {
+                if (
+                  conv._id === data.conversationId &&
+                  conv.lastMessage?._id === data.messageId
+                ) {
                   return {
                     ...conv,
                     lastMessage: {
                       ...conv.lastMessage,
-                      readBy: [...(conv.lastMessage.readBy || []), {
-                        user: data.userId,
-                        readAt: data.readAt
-                      }]
-                    }
+                      readBy: [
+                        ...(conv.lastMessage.readBy || []),
+                        {
+                          user: data.userId,
+                          readAt: data.readAt,
+                        },
+                      ],
+                    },
                   };
                 }
                 return conv;
@@ -339,14 +350,30 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     socketRef.current?.emit("leave:conversation", conversationId);
   }, []);
 
+  // const sendMessage = useCallback(
+  //   (data: { conversationId: string; content: any; type: string }) => {
+  //     if (!socketRef.current?.connected) {
+  //       console.error("Socket is not connected");
+  //       return;
+  //     }
+  //     console.log("Sending message:", data);
+  //     socketRef.current.emit("message:send", data);
+  //   },
+  //   []
+  // );
+
   const sendMessage = useCallback(
-    (data: { conversationId: string; content: any; type: string }) => {
+    (
+      data: { conversationId: string; content: any; type: string },
+      callback?: (response: { success?: boolean; error?: string }) => void
+    ) => {
       if (!socketRef.current?.connected) {
         console.error("Socket is not connected");
+        callback?.({ error: "Socket not connected" });
         return;
       }
       console.log("Sending message:", data);
-      socketRef.current.emit("message:send", data);
+      socketRef.current.emit("message:send", data, callback);
     },
     []
   );
