@@ -45,6 +45,54 @@ function formatFileSize(bytes: number): string {
   return `${value.toFixed(2)} ${sizes[i]}`;
 }
 
+function renderCallMessage(message: any, isOwnMessage: boolean) {
+  const callType = message.content.call?.type || "call";
+  const duration = message.content.call?.duration ?? 0;
+  const status = message.content.call?.status || "ended";
+
+  const isVideo = callType === "video";
+  const callIcon = isVideo ? "📹" : "📞";
+
+  const formattedDuration = duration
+    ? `${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, "0")}`
+    : "0:00";
+
+  // Determine text and color based on call status
+  let statusText = "";
+  let statusTextColor = "";
+
+  switch (status) {
+    case "rejected":
+      statusText = "Call rejected";
+      statusTextColor = "text-red-500";
+      break;
+    case "ended":
+      statusText = "Call ended";
+      statusTextColor = isOwnMessage ? "text-white" : "text-green-600";
+      break;
+    default:
+      statusText = "Call";
+      statusTextColor = isOwnMessage ? "text-white" : "text-muted-foreground";
+      break;
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-lg">{callIcon}</span>
+      <div className="text-sm">
+        <div className={`${statusTextColor}`}>
+          {statusText} {isVideo ? "video" : "audio"}
+        </div>
+        {status !== "rejected" && (
+          <div className="text-xs text-muted-foreground">
+            Duration: {formattedDuration}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function renderFileMessage(media: any, isOwnMessage: any) {
   if (!media || !media.mimeType || !media.url) return null;
 
@@ -543,9 +591,9 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
                 {selectedConversation.type !== "direct" && (
                   <div>
                     <Avatar className="w-8 h-8">
-                      <AvatarImage src={message.sender.avatar} />
+                      <AvatarImage src={message?.sender?.avatar} />
                       <AvatarFallback>
-                        {message.sender.username.charAt(0).toUpperCase()}
+                        {message?.sender?.username?.charAt(0)?.toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                   </div>
@@ -564,8 +612,20 @@ const ChatContent: React.FC<ChatContentProps> = ({ selectedConversation }) => {
                           : "bg-muted text-foreground ltr:rounded-bl-none rtl:rounded-br-none"
                       }`}
                     >
+                      {/* {message.type === "file" && message.content.media ? (
+                        renderFileMessage(message.content.media, isOwnMessage)
+                      ) : (
+                        <p className="mb-0">
+                          {message.content.text ||
+                            message.content.media?.caption ||
+                            message.content.media?.url}
+                        </p>
+                      )} */}
+
                       {message.type === "file" && message.content.media ? (
                         renderFileMessage(message.content.media, isOwnMessage)
+                      ) : message.type === "call" ? (
+                        renderCallMessage(message, isOwnMessage)
                       ) : (
                         <p className="mb-0">
                           {message.content.text ||

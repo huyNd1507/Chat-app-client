@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { io, Socket } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
+import { getMe } from "@/services/auth";
 
 interface OnlineUser {
   userId: string;
@@ -52,6 +53,62 @@ interface SocketContextType {
   startTyping: (conversationId: string) => void;
   stopTyping: (conversationId: string) => void;
   isConnected: boolean;
+  initiateCall: (
+    toUserId: string,
+    offer: RTCSessionDescriptionInit,
+    conversationId: string
+  ) => void;
+  sendAnswer: (toUserId: string, answer: RTCSessionDescriptionInit) => void;
+  sendIceCandidate: (toUserId: string, candidate: RTCIceCandidateInit) => void;
+  rejectCall: (data: { to: string; conversationId: string }) => void;
+  endCall: (
+    toUserId: string,
+    data: { conversationId: string; duration: number }
+  ) => void;
+  onCallEvents: (handlers: {
+    onOffer?: (data: {
+      offer: RTCSessionDescriptionInit;
+      from: string;
+    }) => void;
+    onAnswer?: (data: {
+      answer: RTCSessionDescriptionInit;
+      from: string;
+    }) => void;
+    onCandidate?: (data: { candidate: RTCIceCandidate; from: string }) => void;
+    onRejected?: (data: { from: string; conversationId: string }) => void;
+    onEnded?: () => void; // Thêm handler cho sự kiện kết thúc cuộc gọi
+  }) => void;
+
+  incomingCall: {
+    from: string;
+    offer: RTCSessionDescriptionInit;
+    callerInfo: {
+      name: string;
+      avatar?: string;
+    };
+    groupInfo?: {
+      name: string;
+      avatar?: string;
+      type: string;
+    };
+    conversationId: string;
+  } | null;
+  setIncomingCall: React.Dispatch<
+    React.SetStateAction<{
+      from: string;
+      offer: RTCSessionDescriptionInit;
+      callerInfo: {
+        name: string;
+        avatar?: string;
+      };
+      groupInfo?: {
+        name: string;
+        avatar?: string;
+        type: string;
+      };
+      conversationId: string;
+    } | null>
+  >;
 }
 
 const SocketContext = createContext<SocketContextType | null>(null);
@@ -74,6 +131,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const [messages, setMessages] = useState<Map<string, Message[]>>(new Map());
   const [isConnected, setIsConnected] = useState(false);
+  const [incomingCall, setIncomingCall] = useState<{
+    from: string;
+    offer: RTCSessionDescriptionInit;
+    callerInfo: any;
+    groupInfo?: any;
+    conversationId: string;
+  } | null>(null);
+
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -190,7 +255,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
           };
         });
 
-        // Force refetch conversations to ensure real-time updates
         queryClient.invalidateQueries({ queryKey: ["conversations"] });
       }
     );
@@ -341,6 +405,29 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, [queryClient]);
 
+  useEffect(() => {
+    if (!socketRef.current) return;
+
+    socketRef.current.on(
+      "call:offer",
+      async ({ from, offer, callerInfo, groupInfo, conversationId }) => {
+        console.log(
+          "Incoming call from:",
+          from,
+          "in conversation:",
+          conversationId
+        );
+        setIncomingCall({
+          from,
+          offer,
+          callerInfo,
+          groupInfo,
+          conversationId, // Lưu conversationId của cuộc gọi
+        });
+      }
+    );
+  }, []);
+
   // Socket actions
   const joinConversation = useCallback((conversationId: string) => {
     socketRef.current?.emit("join:conversation", conversationId);
@@ -349,18 +436,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const leaveConversation = useCallback((conversationId: string) => {
     socketRef.current?.emit("leave:conversation", conversationId);
   }, []);
-
-  // const sendMessage = useCallback(
-  //   (data: { conversationId: string; content: any; type: string }) => {
-  //     if (!socketRef.current?.connected) {
-  //       console.error("Socket is not connected");
-  //       return;
-  //     }
-  //     console.log("Sending message:", data);
-  //     socketRef.current.emit("message:send", data);
-  //   },
-  //   []
-  // );
 
   const sendMessage = useCallback(
     (
@@ -398,6 +473,94 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     socketRef.current?.emit("typing:stop", { conversationId });
   }, []);
 
+  // Call handling
+  const initiateCall = useCallback(
+    (toUserId: any, offer: any, conversationId: string) => {
+      socketRef.current?.emit("call:offer", {
+        to: toUserId,
+        offer,
+        conversationId,
+      });
+    },
+    []
+  );
+
+  const sendAnswer = useCallback((toUserId: any, answer: any) => {
+    socketRef.current?.emit("call:answer", { to: toUserId, answer });
+  }, []);
+
+  const sendIceCandidate = useCallback((toUserId: any, candidate: any) => {
+    socketRef.current?.emit("call:ice-candidate", { to: toUserId, candidate });
+  }, []);
+
+  const rejectCall = useCallback(
+    (data: { to: string; conversationId: string }) => {
+      socketRef.current?.emit("call:reject", {
+        to: data.to,
+        conversationId: data.conversationId,
+      });
+    },
+    []
+  );
+
+  const endCall = useCallback(
+    (toUserId: string, data: { conversationId: string; duration: number }) => {
+      socketRef.current?.emit("call:end", {
+        to: toUserId,
+        conversationId: data.conversationId,
+        duration: data.duration,
+      });
+    },
+    []
+  );
+
+  const onCallEvents = useCallback(
+    (handlers: {
+      onOffer?: (data: {
+        offer: RTCSessionDescriptionInit;
+        from: string;
+      }) => void;
+      onAnswer?: (data: {
+        answer: RTCSessionDescriptionInit;
+        from: string;
+      }) => void;
+      onCandidate?: (data: {
+        candidate: RTCIceCandidate;
+        from: string;
+      }) => void;
+      onRejected?: (data: { from: string; conversationId: string }) => void;
+      onEnded?: () => void;
+    }) => {
+      if (!socketRef.current) return;
+
+      socketRef.current.on("call:rejected", (data) => {
+        console.log("Call rejected:", data);
+        if (handlers.onRejected) {
+          handlers.onRejected(data);
+        }
+      });
+
+      socketRef.current?.on("call:offer", handlers.onOffer || (() => {}));
+      socketRef.current?.on("call:answer", handlers.onAnswer || (() => {}));
+      socketRef.current?.on(
+        "call:ice-candidate",
+        handlers.onCandidate || (() => {})
+      );
+      socketRef.current?.on("call:rejected", handlers.onRejected || (() => {}));
+      socketRef.current?.on("call:ended", handlers.onEnded || (() => {}));
+
+      return () => {
+        socketRef.current?.off("call:rejected");
+        socketRef.current?.off("call:offer");
+        socketRef.current?.off("call:answer");
+        socketRef.current?.off("call:ice-candidate");
+        socketRef.current?.off("call:rejected");
+        socketRef.current?.off("call:ended");
+      };
+    },
+    []
+  );
+
   const value = {
     socket: socketRef.current,
     onlineUsers,
@@ -410,6 +573,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     startTyping,
     stopTyping,
     isConnected,
+    initiateCall,
+    sendAnswer,
+    sendIceCandidate,
+    rejectCall,
+    endCall,
+    onCallEvents,
+    incomingCall,
+    setIncomingCall,
   };
 
   return (

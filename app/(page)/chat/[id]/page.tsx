@@ -10,6 +10,9 @@ import { useQuery } from "@tanstack/react-query";
 import { getConversationDetail } from "@/services/conversation";
 import { Conversation } from "@/types/conversation";
 import { useState, useEffect } from "react";
+import { useSocket } from "@/contexts/SocketContext";
+import IncomingCallModal from "@/components/card/IncomingCallModal";
+import VideoCallModal from "@/components/card/VideoCallModal";
 
 const LoadingSpinner = () => {
   return (
@@ -19,10 +22,19 @@ const LoadingSpinner = () => {
   );
 };
 
+interface ActiveCall {
+  userId: string;
+  isCaller: boolean;
+  conversationId: string | any;
+}
+
 const ConversationDetail = () => {
   const params = useParams();
   const { id } = params;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { incomingCall, setIncomingCall } = useSocket();
+
+  const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
 
   const { data: conversation, isLoading } = useQuery<{ data: Conversation }>({
     queryKey: ["conversation", id],
@@ -43,6 +55,8 @@ const ConversationDetail = () => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [conversation]);
+
+  console.log("conversation:", conversation?.data?._id);
 
   return (
     <MainLayout>
@@ -83,6 +97,34 @@ const ConversationDetail = () => {
           <h3 className="text-xl font-semibold mb-2">Select a conversation</h3>
           <p>Choose a conversation from the list to start chatting</p>
         </div>
+      )}
+
+      {incomingCall && (
+        <IncomingCallModal
+          callerId={incomingCall.from}
+          offer={incomingCall.offer}
+          callerInfo={incomingCall.callerInfo}
+          groupInfo={incomingCall.groupInfo}
+          onClose={() => setIncomingCall(null)}
+          conversationId={conversation?.data?._id}
+          onAccept={() => {
+            setIncomingCall(null);
+            setActiveCall({
+              userId: incomingCall.from,
+              isCaller: false,
+              conversationId: conversation?.data?._id,
+            });
+          }}
+        />
+      )}
+
+      {activeCall && (
+        <VideoCallModal
+          targetUserId={activeCall.userId}
+          isCaller={activeCall.isCaller}
+          onClose={() => setActiveCall(null)}
+          conversationId={activeCall.conversationId}
+        />
       )}
     </MainLayout>
   );
